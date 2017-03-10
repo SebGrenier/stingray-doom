@@ -1,0 +1,101 @@
+// About
+//
+name = "WAD Importer"
+description = "DOOM WAD importer"
+version = "0.1"
+changelog = {
+}
+author = {
+    name = "Sebastien Grenier"
+    company = "Sebastien Grenier"
+    url = ""
+}
+keywords = ["plugin"]
+license = {
+    type = "Autodesk"
+    url = "http://www.autodesk.com/company/legal-notices-trademarks/software-license-agreements"
+}
+repository = {
+    type = "git"
+    url = "https://git.autodesk.com/gameware/stingray.git"
+}
+
+extensions = {
+    actions = [
+        {
+            name = "import-wad"
+            type = "js"
+            module = "wad-import-actions"
+            function_name = "importWad"
+        }
+        {
+            name = "wad-to-stingray"
+            type = "js"
+            module = "wad-import-actions"
+            function_name = "wadToStingray"
+        }
+        {
+            name = "open-wad-viewer"
+            type = "js"
+            module = "wad-import-actions"
+            function_name = "openWadViewer"
+        }
+    ]
+
+    views = [
+        {
+            type = "panel"
+            name = "wad-viewer"
+            path = "wad-viewer"
+            title = "Wad Viewer"
+            width = 800
+            height = 600
+        }
+    ]
+
+    imports = [
+        {
+            types = ["wad"]
+            label = "Doom"
+            do = [
+                "import-wad"
+                "wad-to-stingray"
+            ]
+        }
+    ]
+
+    menus = [
+        {
+            path = "Developer/Test Gen BSI"
+            action = {
+                 name = "test-bsi-write"
+                 type = "js"
+                 module = "wad-import-actions"
+                 function_name = "loadSwad"
+             }
+            shortcut = "Ctrl+F3"
+        }
+    ]
+
+    asset_types = [
+        {
+            type = "wad"
+            category = "Wad"
+            icon = "doom.png"
+            invoke = "open-wad-viewer \"$1\""
+        }
+        {
+            type = "WAD"
+            category = "Wad"
+            icon = "doom.png"
+            invoke = "open-wad-viewer \"$1\""
+        }
+    ]
+}
+
+// Dependencies
+//
+platforms = ["win64"]
+dependencies = {
+    "stingray" = ">=1.8.0"
+}

@@ -1,0 +1,239 @@
+define(function (require) {
+    "use strict";
+
+    const _ = require('lodash');
+    const stingray = require('stingray');
+    const utils = require('wad-importer/utils');
+    const LumpEntry = require('wad-importer/wad_format/lump-entry');
+
+    const DISTANCE_THRESHOLD = 3;
+    const RIGHT_SIDE_SIGN = 1;
+    const LEFT_SIDE_SIGN = -1;
+
+    function getBoundingBox (data) {
+        return {
+            top: utils.fromTwosComplement(_.toInt16(data[0], data[1]), 16),
+            bottom: utils.fromTwosComplement(_.toInt16(data[2], data[3]), 16),
+            left: utils.fromTwosComplement(_.toInt16(data[4], data[5]), 16),
+            right: utils.fromTwosComplement(_.toInt16(data[6], data[7]), 16)
+        };
+    }
+
+    class Node extends LumpEntry{
+        constructor () {
+            super();
+
+            this.partitionX = 0;
+            this.partitionY = 0;
+            this.changeX = 0;
+            this.changeY = 0;
+            this.rightBB = {};
+            this.leftBB = {};
+            this.rightChild = 0;
+            this.leftChild = 0;
+
+            this.rightChildRef = null;
+            this.leftChildRef = null;
+            this.parent = null;
+
+            this.completePartitionLine = null;
+            this.id = stingray.guid();
+        }
+
+        buildCrossReferences (map) {
+            let index = Node.childToIndex(this.rightChild);
+            if (Node.isChildSubSector(this.rightChild)) {
+                let subSector = map.ssectors[index];
+                subSector.nodeRef = this;
+                this.rightChildRef = subSector;
+            } else {
+                let node = map.nodes[index];
+                node.parent = this;
+                this.rightChildRef = node;
+            }
+            index = Node.childToIndex(this.leftChild);
+            if (Node.isChildSubSector(this.leftChild)) {
+                let subSector = map.ssectors[index];
+                subSector.nodeRef = this;
+                this.leftChildRef = subSector;
+            } else {
+                let node = map.nodes[index];
+                node.parent = this;
+                this.leftChildRef = node;
+            }
+        }
+
+        getBBForChild (child, map, extended = false) {
+            if (!extended) {
+                if (child === this.rightChildRef) {
+                    return this.rightBB;
+                } else if (child === this.leftChildRef) {
+                    return this.leftBB;
+                }
+            } else if (this.parent) {
+                return this.parent.getBBForChild(this);
+                // let splitBB = null;
+                // if (child === this.rightChildRef) {
+                //     splitBB = this.splitBB(bb, this.completePartitionLine, RIGHT_SIDE_SIGN);
+                //     splitBB.bottom = Math.min(splitBB.bottom, this.rightBB.bottom);
+                //     splitBB.top = Math.max(splitBB.top, this.rightBB.top);
+                //     splitBB.left = Math.min(splitBB.left, this.rightBB.left);
+                //     splitBB.right = Math.max(splitBB.right, this.rightBB.right);
+                // } else if (child === this.leftChildRef) {
+                //     splitBB = this.splitBB(bb, this.completePartitionLine, LEFT_SIDE_SIGN);
+                //     splitBB.bottom = Math.min(splitBB.bottom, this.leftBB.bottom);
+                //     splitBB.top = Math.max(splitBB.top, this.leftBB.top);
+                //     splitBB.left = Math.min(splitBB.left, this.leftBB.left);
+                //     splitBB.right = Math.max(splitBB.right, this.leftBB.right);
+                // }
+                // return splitBB;
+            } else if (map) {
+                let bb = {
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: 0
+                };
+                let mapBB = map.getBB();
+                bb.top = mapBB.maxY;
+                bb.bottom = mapBB.minY;
+                bb.left = mapBB.minX;
+                bb.right = mapBB.maxX;
+                return bb;
+            }
+
+            return null;
+        }
+
+        splitBB(bb, partitionLine, side) {
+            let vs = [{
+                x: bb.left,
+                y: bb.top
+            },{
+                x: bb.right,
+                y: bb.top
+            },{
+                x: bb.left,
+                y: bb.bottom
+            }, {
+                x: bb.right,
+                y: bb.bottom
+            }];
+
+            let rightVs = [];
+            let leftVs = [];
+            for (let v of vs) {
+                let referenceV = utils.toReferenceFrame(partitionLine.start, partitionLine.end, v);
+                if (Math.sign(referenceV.y) === RIGHT_SIDE_SIGN)
+                    rightVs.push(v);
+                else
+                    leftVs.push(v);
+            }
+
+            if (side === RIGHT_SIDE_SIGN) {
+                let vertices = rightVs.concat([partitionLine.start, partitionLine.end]);
+                return utils.getNodeBB(vertices);
+            } else {
+                let vertices = leftVs.concat([partitionLine.start, partitionLine.end]);
+                return utils.getNodeBB(vertices);
+            }
+        }
+
+        addMissingImplicitSegments (map) {
+            let bb = {
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0
+            };
+            if (this.parent) {
+                bb = this.parent.getBBForChild(this);
+            } else {
+                let mapBB = map.getBB();
+                bb.top = mapBB.maxY;
+                bb.bottom = mapBB.minY;
+                bb.left = mapBB.minX;
+                bb.right = mapBB.maxX;
+            }
+
+            // Get the splitting line of the bounding box
+            let aabb = utils.convertNodeBBToAABB(bb);
+            let partitionRay = utils.convertPartitionLineToRay({x: this.partitionX, y: this.partitionY}, {x: this.changeX, y: this.changeY});
+
+            let intersections = utils.getIntersectionPointsOnAABB(partitionRay, aabb, true);
+            if (intersections.length !== 2) {
+                throw new Error ('Partition line could not split its bounding box');
+            }
+
+            let start = {
+                x: intersections[0].x,
+                y: intersections[0].y
+            };
+            let end = {
+                x: intersections[1].x,
+                y: intersections[1].y
+            };
+
+            this.completePartitionLine = {start, end};
+
+            // Get the segments that are connected to this partition line
+            let segsInBB = utils.getSegmentInsideAABB(map, map.segs.concat(map.implicitSegs), aabb);
+            let segsOnSegment = utils.getSegmentsCloseToSegment(map, segsInBB, start, end, DISTANCE_THRESHOLD);
+
+            // Get the vertices for these segments
+            let vertices = utils.getVertexFromSegmentsCloseToSegment(map, segsOnSegment, start, end, DISTANCE_THRESHOLD);
+            vertices = _.uniq(vertices);
+
+            if (vertices.length < 2)
+                return;
+
+            // Project the vertices on the partition line to be able to sort them easily.
+            let projectedVertices = _.map(vertices, v => {
+                return utils.projectVertexOnSegment(start, end, v, true);
+            });
+
+            // Sort the vertices with their x values (projected)
+            let [sortedProjected, sortedVertices] = _.unzip(_.sortBy(_.zip(projectedVertices, vertices), [pv => pv[0].x]));
+
+            // Between each pair of vertices, create a new segment.
+            // TODO: Find a way to not create segment outside the map or inside walls
+            for (let i = 1; i < sortedVertices.length; ++i) {
+                let startIndex = map.vertexes.indexOf(sortedVertices[i - 1]);
+                let endIndex = map.vertexes.indexOf(sortedVertices[i]);
+
+                // Don't add an implicit segment if a real one already exists
+                if (map.segmentExists(startIndex, endIndex))
+                    continue;
+
+                map.addImplicitSegment(startIndex, endIndex);
+            }
+        }
+
+        static fromBinary (binaryData) {
+            let node = new Node();
+            node.partitionX = utils.fromTwosComplement(_.toInt16(binaryData[0], binaryData[1]), 16);
+            node.partitionY = utils.fromTwosComplement(_.toInt16(binaryData[2], binaryData[3]), 16);
+            node.changeX = utils.fromTwosComplement(_.toInt16(binaryData[4], binaryData[5]), 16);
+            node.changeY = utils.fromTwosComplement(_.toInt16(binaryData[6], binaryData[7]), 16);
+            node.rightBB = getBoundingBox(binaryData.subarray(8, 16));
+            node.leftBB = getBoundingBox(binaryData.subarray(16, 24));
+            node.rightChild = _.toInt16(binaryData[24], binaryData[25]);
+            node.leftChild = _.toInt16(binaryData[26], binaryData[27]);
+            return node;
+        }
+
+        static get ENTRY_SIZE () {
+            return 28;
+        }
+
+        static isChildSubSector (child) {
+            return utils.bitToBool(child, 15);
+        }
+
+        static childToIndex (child) {
+            return child & 0x7FFF;
+        }
+    }
+
+    return Node;
+});
