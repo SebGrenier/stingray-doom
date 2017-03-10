@@ -257,7 +257,7 @@ define(function (require) {
     };
 
     // Test if segments ab and cd overlap. If they do, compute and return
-    // intersection t value along ab and intersection position p
+    // intersection position p
     exports.test2DSegmentSegment = function (a, b, c, d) {
         let t = 0;
         let p = [0, 0];
@@ -268,7 +268,7 @@ define(function (require) {
         let a2 = exports.signed2DTriArea(a, b, c);
         // To intersect, must have sign opposite of a1
         // If c and d are on different sides of ab, areas have different signs
-        if (a1 * a2 <= 0.0) {
+        if (a1 * a2 < 0.0) {
             // Compute signs for a and b with respect to segment cd
             let a3 = exports.signed2DTriArea(c, d, a);
             // Compute winding of cda (+ or -)
@@ -277,7 +277,7 @@ define(function (require) {
             // Must have opposite sign of a3
             let a4 = a3 + a2 - a1;
             // Points a and b on different sides of cd if areas have different signs
-            if (a3 * a4 <= 0.0) {
+            if (a3 * a4 < 0.0) {
                 // Segments intersect. Find intersection point along L(t) = a + t * (b - a).
                 // Given height h1 of an over cd and height h2 of b over cd,
                 // t = h1 / (h1 - h2) =(b*h1/2) / (b*h1/2 - b*h2/2) = a3 / (a3 - a4),
@@ -285,10 +285,23 @@ define(function (require) {
                 // of cd) cancels out.
                 t = a3 / (a3 - a4);
                 p = exports.add(a, exports.mult(exports.sub(b, a), t));
-                return {t, p};
+                return p;
             }
         }
-        // Segments not intersecting (or collinear)
+
+        if (exports.pointDistanceToSegment(a, b, c) === 0)
+            return c;
+
+        if (exports.pointDistanceToSegment(a, b, d) === 0)
+            return d;
+
+        if (exports.pointDistanceToSegment(c, d, a) === 0)
+            return a;
+
+        if (exports.pointDistanceToSegment(c, d, b) === 0)
+            return b;
+
+        // Segments not intersecting
         return null;
     };
 
@@ -316,11 +329,49 @@ define(function (require) {
 
             // Check if the segment intersect and it is an implicit segment
             let intersect = exports.test2DSegmentSegment(a, b, c1, c2);
-            if (intersect && s.implicit && splitImplicit) {
-                // Split the segment
-                let newSeg = map.splitImplicitSegment(s, intersect.p[0], intersect.p[1]);
-                subSet.push(s);
-                subSet.push(newSeg);
+            if (intersect && s.implicit) {
+                if (splitImplicit) {
+                    if (_.isNaN(intersect[0]) || _.isNaN(intersect[1]))
+                        throw new Error('NaN value!');
+                    // Split the segment
+                    let newSeg = map.splitImplicitSegment(s, intersect[0], intersect[1]);
+                    subSet.push(s);
+                    subSet.push(newSeg);
+                } else {
+                    subSet.push(s);
+                }
+            }
+        }
+
+        return subSet;
+    };
+
+    exports.getPartitionLinesCloseToSegment = function (map, pLines, startV, endV, distanceThreshold) {
+        let subSet = [];
+        let a = [startV.x, startV.y];
+        let b = [endV.x, endV.y];
+
+
+        for (let line of pLines) {
+            let v1 = line.start;
+            let c1 = [v1.x, v1.y];
+            let distance = exports.pointDistanceToSegment(a, b, c1);
+            if (distance <= distanceThreshold) {
+                subSet.push(line);
+                continue;
+            }
+            let v2 = line.end;
+            let c2 = [v2.x, v2.y];
+            distance = exports.pointDistanceToSegment(a, b, c2);
+            if (distance <= distanceThreshold) {
+                subSet.push(line);
+                continue;
+            }
+
+            // Check if the segment intersect and it is an implicit segment
+            let intersect = exports.test2DSegmentSegment(a, b, c1, c2);
+            if (intersect) {
+                subSet.push(line);
             }
         }
 

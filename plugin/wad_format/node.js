@@ -174,7 +174,76 @@ define(function (require) {
                 y: intersections[1].y
             };
 
+            // Get the real starting and ending point that are on parents' partition lines (or the outer bounding box for the root)
+            if (this.parent) {
+                // Find the intersection points on the outer bounding box
+                let mapBB = map.getBB();
+                mapBB.top = mapBB.maxY;
+                mapBB.bottom = mapBB.minY;
+                mapBB.left = mapBB.minX;
+                mapBB.right = mapBB.maxX;
+                let mapAABB = utils.convertNodeBBToAABB(mapBB);
+                let mapIntersections = utils.getIntersectionPointsOnAABB(partitionRay, mapAABB, true);
+                if (mapIntersections.length !== 2) {
+                    throw new Error ('Partition line could not split its bounding box');
+                }
+
+                let mapStart = {
+                    x: mapIntersections[0].x,
+                    y: mapIntersections[0].y
+                };
+                let mapEnd = {
+                    x: mapIntersections[1].x,
+                    y: mapIntersections[1].y
+                };
+
+                // Find the partition lines that are closest outside of the bounding box
+                // by finding the ones on the extended lines and sorting them according to start point
+
+                let allPartitionsCloseToLine = utils.getSegmentsCloseToSegment(map, map.implicitSegs, mapStart, mapEnd, 0, false);
+                let vertices = _.map(allPartitionsCloseToLine, s => {
+                    let a = [mapStart.x, mapStart.y];
+                    let b = [mapEnd.x, mapEnd.y];
+                    let startV = map.vertexes[s.startVertex];
+                    let endV = map.vertexes[s.endVertex];
+                    let c = [startV.x, startV.y];
+                    let d = [endV.x, endV.y];
+                    let intersection = utils.test2DSegmentSegment(a, b, c, d);
+                    return {x: intersection[0], y: intersection[1]};
+                });
+                vertices = _.uniq(vertices);
+
+                if (vertices.length > 0) {
+                    // Project the vertices on the partition line to be able to sort them easily.
+                    let projectedVertices = _.map(vertices, v => {
+                        return utils.projectVertexOnSegment(start, end, v, true);
+                    });
+
+                    // Sort the vertices with their x values (projected)
+                    let [sortedProjected, sortedVertices] = _.unzip(_.sortBy(_.zip(projectedVertices, vertices), [pv => pv[0].x]));
+
+                    // Get the greatest negative number
+                    let negativesVertices = _.filter(sortedProjected, pv => pv.x < 0);
+                    if (negativesVertices.length > 0) {
+                        let projectedVertexBefore = _.last(negativesVertices);
+                        let index = _.indexOf(sortedProjected, projectedVertexBefore);
+                        start = sortedVertices[index];
+                    }
+
+                    // Get the smallest positive number
+                    let positiveVertices = _.filter(sortedProjected, pv => pv.x > 0);
+                    if (positiveVertices.length > 0) {
+                        let projectedVertexAfter = _.first(positiveVertices);
+                        let index = _.indexOf(sortedProjected, projectedVertexAfter);
+                        end = sortedVertices[index];
+                    }
+                }
+            }
+
             this.completePartitionLine = {start, end};
+            map.partitionLines.push(this.completePartitionLine);
+
+            aabb = utils.convertNodeBBToAABB(utils.getNodeBB([start, end]));
 
             // Get the segments that are connected to this partition line
             let segsInBB = utils.getSegmentInsideAABB(map, map.segs.concat(map.implicitSegs), aabb);

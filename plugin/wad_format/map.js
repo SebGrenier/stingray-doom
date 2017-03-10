@@ -42,6 +42,7 @@ define(function (require) {
             this.blockmap = null;
 
             this.implicitSegs = [];
+            this.partitionLines = [];
         }
 
         buildCrossReferences () {
@@ -106,6 +107,8 @@ define(function (require) {
         }
 
         addVertex (x, y) {
+            if (_.isNaN(x) || _.isNaN(y))
+                throw new Error('Nan value!');
             let v = new Vertex();
             v.x = x;
             v.y = y;

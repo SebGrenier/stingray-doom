@@ -97,5 +97,5 @@ extensions = {
 //
 platforms = ["win64"]
 dependencies = {
-    "stingray" = ">=1.8.0"
+    "stingray" = ">=1.9.0"
 }
