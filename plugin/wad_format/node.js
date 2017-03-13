@@ -139,6 +139,13 @@ define(function (require) {
             }
         }
 
+        getAncestorsPartitionLines (partitionLines) {
+            if (this.parent) {
+                this.parent.getAncestorsPartitionLines(partitionLines);
+                partitionLines.push(this.parent.completePartitionLine);
+            }
+        }
+
         addMissingImplicitSegments (map) {
             let bb = {
                 top: 0,
@@ -199,13 +206,14 @@ define(function (require) {
 
                 // Find the partition lines that are closest outside of the bounding box
                 // by finding the ones on the extended lines and sorting them according to start point
-
-                let allPartitionsCloseToLine = utils.getSegmentsCloseToSegment(map, map.implicitSegs, mapStart, mapEnd, 0, false);
+                let parentsPartitionLines = [];
+                this.getAncestorsPartitionLines(parentsPartitionLines);
+                let allPartitionsCloseToLine = utils.getPartitionLinesCloseToSegment(map, parentsPartitionLines, mapStart, mapEnd, 0, false);
                 let vertices = _.map(allPartitionsCloseToLine, s => {
                     let a = [mapStart.x, mapStart.y];
                     let b = [mapEnd.x, mapEnd.y];
-                    let startV = map.vertexes[s.startVertex];
-                    let endV = map.vertexes[s.endVertex];
+                    let startV = s.start;
+                    let endV = s.end;
                     let c = [startV.x, startV.y];
                     let d = [endV.x, endV.y];
                     let intersection = utils.test2DSegmentSegment(a, b, c, d);
@@ -214,6 +222,8 @@ define(function (require) {
                 vertices = _.uniq(vertices);
 
                 if (vertices.length > 0) {
+                    let length = utils.distanceBetweenVertex(start, end);
+
                     // Project the vertices on the partition line to be able to sort them easily.
                     let projectedVertices = _.map(vertices, v => {
                         return utils.projectVertexOnSegment(start, end, v, true);
@@ -231,7 +241,7 @@ define(function (require) {
                     }
 
                     // Get the smallest positive number
-                    let positiveVertices = _.filter(sortedProjected, pv => pv.x > 0);
+                    let positiveVertices = _.filter(sortedProjected, pv => pv.x >= length);
                     if (positiveVertices.length > 0) {
                         let projectedVertexAfter = _.first(positiveVertices);
                         let index = _.indexOf(sortedProjected, projectedVertexAfter);

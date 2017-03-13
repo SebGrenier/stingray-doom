@@ -98,6 +98,12 @@ define(function (require) {
         return Math.sqrt(exports.dot(v, v));
     };
 
+    exports.distanceBetweenVertex = function (v1, v2) {
+        let c1 = [v1.x, v1.y];
+        let c2 = [v2.x, v2.y];
+        return exports.length(exports.sub(c2, c1));
+    };
+
     exports.convertNodeBBToAABB = function (bb) {
         let center = {
             x: (bb.left + bb.right) / 2,
