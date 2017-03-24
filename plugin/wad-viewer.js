@@ -36,7 +36,8 @@ define(function (require) {
         'SubSectors' :1,
         'Partitions': 2,
         'Segments': 3,
-        'Divisions': 4
+        'Divisions': 4,
+        'Regions': 5
     };
 
     function getRandomColor() {
@@ -46,6 +47,14 @@ define(function (require) {
             color += letters[Math.floor(Math.random() * 16)];
         }
         return color;
+    }
+
+    function getRandomRGB () {
+        return {
+            r: Math.floor(Math.random() * 255),
+            g: Math.floor(Math.random() * 255),
+            b: Math.floor(Math.random() * 255)
+        };
     }
 
     function scale (value, minSrc, maxSrc, minDst, maxDst) {
@@ -71,6 +80,8 @@ define(function (require) {
             this.getDrawModeOptions = () => DrawMode;
             this.drawBoundingBoxModel = m.prop(true);
 
+            this.drawAncestorsModel = m.prop(false);
+
             this.wadCanvasConfig = this.wadCanvasConfig.bind(this);
         }
 
@@ -95,6 +106,14 @@ define(function (require) {
                     'Bounding Boxes',
                     Checkbox.component({
                         model: this.drawBoundingBoxModel
+                    }),
+                    m.utils.if(this.drawModeModelIndex() === DrawMode.Divisions, () => {
+                        return [
+                            'Ancestors',
+                            Checkbox.component({
+                                model: this.drawAncestorsModel
+                            })
+                        ];
                     }),
                     Button.component({
                         text: 'Generate',
@@ -154,6 +173,9 @@ define(function (require) {
                 case DrawMode.Divisions:
                     this.drawDivisions();
                     break;
+                case DrawMode.Regions:
+                    this.drawSubSectorRegion();
+                    break;
             }
 
         }
@@ -165,7 +187,7 @@ define(function (require) {
             wadAssets.exportMap(map, this.wadData, baseFilePath);
         }
 
-        getScaledVertex(start, end, bb) {
+        getScaledVertices(start, end, bb) {
             let startVertexMod = {
                 x: scale(start.x, bb.minX, bb.maxX, 0, this.canvas.width),
                 y: this.canvas.height - scale(start.y, bb.minY, bb.maxY, 0, this.canvas.height)
@@ -179,6 +201,13 @@ define(function (require) {
             return [startVertexMod, endVertexMod];
         }
 
+        getScaledVertex (v, bb) {
+            return {
+                x: scale(v.x, bb.minX, bb.maxX, 0, this.canvas.width),
+                y: this.canvas.height - scale(v.y, bb.minY, bb.maxY, 0, this.canvas.height)
+            };
+        }
+
         drawMapLines () {
             const lineColors = {
                 oneSided: 'red',
@@ -186,6 +215,7 @@ define(function (require) {
                 special: '#66ff33'
             };
 
+            this.ctx.fillStyle = `rgba(0, 0, 0, 1)`;
             this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
 
             let map = this.wadData.maps[this.mapModelIndex()];
@@ -195,7 +225,7 @@ define(function (require) {
                 let startVertex = map.vertexes[lineDef.startVertex];
                 let endVertex = map.vertexes[lineDef.endVertex];
 
-                let [startVertexMod, endVertexMod] = this.getScaledVertex(startVertex, endVertex, bb);
+                let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
 
                 if (lineDef.lineType > 0) {
                     this.ctx.strokeStyle = lineColors.special;
@@ -213,6 +243,7 @@ define(function (require) {
         }
 
         drawMapSubSectors () {
+            this.ctx.fillStyle = `rgba(0, 0, 0, 1)`;
             this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
             let map = this.wadData.maps[this.mapModelIndex()];
             let bb = wadAssets.getMapBB(map);
@@ -227,7 +258,7 @@ define(function (require) {
                         let startVertex = map.vertexes[seg.startVertex];
                         let endVertex = map.vertexes[seg.endVertex];
 
-                        let [startVertexMod, endVertexMod] = this.getScaledVertex(startVertex, endVertex, bb);
+                        let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
 
                         this.ctx.beginPath();
                         this.ctx.moveTo(startVertexMod.x, startVertexMod.y);
@@ -252,6 +283,7 @@ define(function (require) {
         }
 
         drawMapPartitionLines () {
+            this.ctx.fillStyle = `rgba(0, 0, 0, 1)`;
             this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
             let map = this.wadData.maps[this.mapModelIndex()];
             let bb = wadAssets.getMapBB(map);
@@ -276,7 +308,7 @@ define(function (require) {
                     }
                 }
 
-                let [startVertexMod, endVertexMod] = this.getScaledVertex(startVertex, endVertex, bb);
+                let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
 
                 this.ctx.strokeStyle = 'white';
                 this.ctx.beginPath();
@@ -287,6 +319,7 @@ define(function (require) {
         }
 
         drawMapSegments () {
+            this.ctx.fillStyle = `rgba(0, 0, 0, 1)`;
             this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
             let map = this.wadData.maps[this.mapModelIndex()];
             let bb = wadAssets.getMapBB(map);
@@ -295,7 +328,7 @@ define(function (require) {
                 let startVertex = map.vertexes[seg.startVertex];
                 let endVertex = map.vertexes[seg.endVertex];
 
-                let [startVertexMod, endVertexMod] = this.getScaledVertex(startVertex, endVertex, bb);
+                let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
 
                 if (seg.implicit)
                     this.ctx.strokeStyle = 'yellow';
@@ -309,6 +342,7 @@ define(function (require) {
         }
 
         drawDivisions () {
+            this.ctx.fillStyle = `rgba(0, 0, 0, 1)`;
             this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
 
             let map = this.wadData.maps[this.mapModelIndex()];
@@ -319,7 +353,7 @@ define(function (require) {
                 let startVertex = map.vertexes[lineDef.startVertex];
                 let endVertex = map.vertexes[lineDef.endVertex];
 
-                let [startVertexMod, endVertexMod] = this.getScaledVertex(startVertex, endVertex, bb);
+                let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
 
                 this.ctx.strokeStyle = 'white';
                 this.ctx.beginPath();
@@ -349,17 +383,73 @@ define(function (require) {
                 }
             }
 
-            let [startVertexMod, endVertexMod] = this.getScaledVertex(startVertex, endVertex, bb);
+            let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
 
             this.ctx.strokeStyle = 'blue';
             this.ctx.beginPath();
             this.ctx.moveTo(startVertexMod.x, startVertexMod.y);
             this.ctx.lineTo(endVertexMod.x, endVertexMod.y);
             this.ctx.stroke();
+
+            if (this.drawAncestorsModel()) {
+                let ancestorsPartitionLines = [];
+                node.getAncestorsPartitionLines(ancestorsPartitionLines);
+
+                for (let partitionLine of ancestorsPartitionLines) {
+                    let start = {
+                        x: partitionLine.start.x,
+                        y: partitionLine.start.y
+                    };
+
+                    let end = {
+                        x: partitionLine.end.x,
+                        y: partitionLine.end.y
+                    };
+
+                    let [startMod, endMod] = this.getScaledVertices(start, end, bb);
+                    this.ctx.strokeStyle = 'blue';
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(startMod.x, startMod.y);
+                    this.ctx.lineTo(endMod.x, endMod.y);
+                    this.ctx.stroke();
+                }
+            }
+        }
+
+        drawSubSectorRegion () {
+            this.ctx.fillStyle = `rgba(0, 0, 0, 1)`;
+            this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
+            let map = this.wadData.maps[this.mapModelIndex()];
+            let bb = wadAssets.getMapBB(map);
+
+            let subSectorColors = [];
+            for (let i = 0; i < map.ssectors.length; ++i) {
+                subSectorColors.push(getRandomRGB());
+            }
+
+            let root = map.getRootNode();
+
+            for (let x = bb.minX; x <= bb.maxX; ++x) {
+                for (let y = bb.minY; y <= bb.maxY; ++y) {
+                    let subSector = root.getSubSectorFromPoint(x, y);
+                    if (subSector) {
+                        let index = map.ssectors.indexOf(subSector);
+                        if (index > -1) {
+                            let color = subSectorColors[index];
+
+
+                            let scaledPos = this.getScaledVertex({x, y}, bb);
+                            this.ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
+                            this.ctx.fillRect(scaledPos.x, scaledPos.y, 1, 1);
+                        }
+                    }
+                }
+            }
+
         }
 
         drawBoundingBox (bb, mapBB, color) {
-            let [topLeft, bottomRight] = this.getScaledVertex({x: bb.left, y: bb.top}, {x: bb.right, y: bb.bottom}, mapBB);
+            let [topLeft, bottomRight] = this.getScaledVertices({x: bb.left, y: bb.top}, {x: bb.right, y: bb.bottom}, mapBB);
             // this.ctx.strokeStyle = getRandomColor();
             this.ctx.strokeStyle = color || 'green';
             this.ctx.beginPath();

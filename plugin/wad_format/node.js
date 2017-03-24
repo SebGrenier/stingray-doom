@@ -288,6 +288,47 @@ define(function (require) {
             }
         }
 
+        getSubSectorFromPoint (x, y) {
+            let leftAABB = utils.convertNodeBBToAABB(this.leftBB);
+            let rightAABB = utils.convertNodeBBToAABB(this.rightBB);
+            let p = [x, y];
+
+            let isInLeftBB = utils.pointIsInsideAABB(p, leftAABB);
+            let isInRightBB = utils.pointIsInsideAABB(p, rightAABB);
+
+            if (isInLeftBB && isInRightBB) {
+                if (this.getVertexSideOfPartitionLine({x, y}, this.completePartitionLine) === LEFT_SIDE_SIGN)
+                    isInRightBB = false;
+                else
+                    isInLeftBB = false;
+            }
+
+            if (isInLeftBB) {
+                if (Node.isChildSubSector(this.leftChild)) {
+                    let subSector = this.leftChildRef;
+
+                    return subSector;
+                } else {
+                    return this.leftChildRef.getSubSectorFromPoint(x, y);
+                }
+            } else if (isInRightBB) {
+                if (Node.isChildSubSector(this.rightChild)) {
+                    let subSector = this.rightChildRef;
+
+                    return subSector;
+                } else {
+                    return this.rightChildRef.getSubSectorFromPoint(x, y);
+                }
+            }
+
+            return null;
+        }
+
+        getVertexSideOfPartitionLine (v, partitionLine) {
+            let referenceP = utils.toReferenceFrame(partitionLine.start, partitionLine.end, v);
+            return Math.sign(referenceP.y);
+        }
+
         static fromBinary (binaryData) {
             let node = new Node();
             node.partitionX = utils.fromTwosComplement(_.toInt16(binaryData[0], binaryData[1]), 16);
