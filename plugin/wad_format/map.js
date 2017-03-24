@@ -141,8 +141,14 @@ define(function (require) {
             return this.addImplicitSegment(index, oldEndVertex);
         }
 
-        segmentExists (startVertexIndex, endVertexIndex) {
-            return _.some(_.concat(this.segs, this.implicitSegs), s => s.startVertex === startVertexIndex && s.endVertex === endVertexIndex);
+        segmentExists (startVertexIndex, endVertexIndex, testOrder = false) {
+            return _.some(_.concat(this.segs, this.implicitSegs), s => {
+                if (!testOrder) {
+                    return (s.startVertex === startVertexIndex && s.endVertex === endVertexIndex) ||
+                        (s.startVertex === endVertexIndex && s.endVertex === startVertexIndex);
+                }
+                return s.startVertex === startVertexIndex && s.endVertex === endVertexIndex;
+            });
         }
 
         static fromBinary(binaryData, directoryEntry, directory) {
