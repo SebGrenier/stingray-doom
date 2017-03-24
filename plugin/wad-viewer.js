@@ -374,6 +374,15 @@ define(function (require) {
                 y: node.completePartitionLine.end.y
             };
 
+            let startPartition = {
+                x: node.partitionX,
+                y: node.partitionY
+            } ;
+            let endPartition = {
+                x: startPartition.x + node.changeX,
+                y: startPartition.y + node.changeY
+            };
+
             if (this.drawBoundingBoxModel()) {
                 this.drawBoundingBox(node.rightBB, bb, 'green');
                 this.drawBoundingBox(node.leftBB, bb, 'red');
@@ -389,6 +398,13 @@ define(function (require) {
             this.ctx.beginPath();
             this.ctx.moveTo(startVertexMod.x, startVertexMod.y);
             this.ctx.lineTo(endVertexMod.x, endVertexMod.y);
+            this.ctx.stroke();
+
+            let [startPartitionMod, endPartitionMod] = this.getScaledVertices(startPartition, endPartition, bb);
+            this.ctx.strokeStyle = 'yellow';
+            this.ctx.beginPath();
+            this.ctx.moveTo(startPartitionMod.x, startPartitionMod.y);
+            this.ctx.lineTo(endPartitionMod.x, endPartitionMod.y);
             this.ctx.stroke();
 
             if (this.drawAncestorsModel()) {

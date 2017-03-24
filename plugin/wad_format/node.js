@@ -208,8 +208,8 @@ define(function (require) {
                 // by finding the ones on the extended lines and sorting them according to start point
                 let parentsPartitionLines = [];
                 this.getAncestorsPartitionLines(parentsPartitionLines);
-                let allPartitionsCloseToLine = utils.getPartitionLinesCloseToSegment(map, parentsPartitionLines, mapStart, mapEnd, 0, false);
-                let vertices = _.map(allPartitionsCloseToLine, s => {
+                //let allPartitionsCloseToLine = utils.getPartitionLinesCloseToSegment(map, parentsPartitionLines, mapStart, mapEnd, 0);
+                let vertices = _.map(parentsPartitionLines, s => {
                     let a = [mapStart.x, mapStart.y];
                     let b = [mapEnd.x, mapEnd.y];
                     let startV = s.start;
@@ -217,11 +217,15 @@ define(function (require) {
                     let c = [startV.x, startV.y];
                     let d = [endV.x, endV.y];
                     let intersection = utils.test2DSegmentSegment(a, b, c, d);
+                    if (!intersection)
+                        return null;
                     return {x: intersection[0], y: intersection[1]};
                 });
-                vertices = _.uniq(vertices);
+                vertices = _.uniq(_.compact(vertices));
 
                 if (vertices.length > 0) {
+                    start = {x: this.partitionX, y: this.partitionY};
+                    end = {x: start.x + this.changeX, y: start.y + this.changeY};
                     let length = utils.distanceBetweenVertex(start, end);
 
                     // Project the vertices on the partition line to be able to sort them easily.
@@ -233,19 +237,29 @@ define(function (require) {
                     let [sortedProjected, sortedVertices] = _.unzip(_.sortBy(_.zip(projectedVertices, vertices), [pv => pv[0].x]));
 
                     // Get the greatest negative number
-                    let negativesVertices = _.filter(sortedProjected, pv => pv.x < 0);
+                    let negativesVertices = _.filter(sortedProjected, pv => pv.x < (0 + DISTANCE_THRESHOLD));
                     if (negativesVertices.length > 0) {
                         let projectedVertexBefore = _.last(negativesVertices);
                         let index = _.indexOf(sortedProjected, projectedVertexBefore);
                         start = sortedVertices[index];
+                    } else {
+                        start = {
+                            x: intersections[0].x,
+                            y: intersections[0].y
+                        };
                     }
 
                     // Get the smallest positive number
-                    let positiveVertices = _.filter(sortedProjected, pv => pv.x >= length);
+                    let positiveVertices = _.filter(sortedProjected, pv => pv.x >= (length - DISTANCE_THRESHOLD));
                     if (positiveVertices.length > 0) {
                         let projectedVertexAfter = _.first(positiveVertices);
                         let index = _.indexOf(sortedProjected, projectedVertexAfter);
                         end = sortedVertices[index];
+                    } else {
+                        end = {
+                            x: intersections[1].x,
+                            y: intersections[1].y
+                        };
                     }
                 }
             }
