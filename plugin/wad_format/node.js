@@ -274,6 +274,7 @@ define(function (require) {
             map.partitionLines.push(this.completePartitionLine);
 
             let aabb = utils.convertNodeBBToAABB(utils.getNodeBB([start, end]));
+            aabb.grow(DISTANCE_THRESHOLD);
 
             // Get the segments that are connected to this partition line
             let segsInBB = utils.getSegmentInsideAABB(map, map.segs.concat(map.implicitSegs), aabb);

@@ -117,7 +117,13 @@ define(function (require) {
             center,
             extent,
             min: [bb.left, bb.bottom],
-            max: [bb.right, bb.top]
+            max: [bb.right, bb.top],
+            grow: function (value) {
+                this.extent.x = this.extent.x + value;
+                this.extent.y = this.extent.y + value;
+                this.min = exports.sub(this.min, [value, value]);
+                this.max = exports.add(this.max, [value, value]);
+            }
         };
     };
 
@@ -264,7 +270,7 @@ define(function (require) {
 
     // Test if segments ab and cd overlap. If they do, compute and return
     // intersection position p
-    exports.test2DSegmentSegment = function (a, b, c, d) {
+    exports.test2DSegmentSegment = function (a, b, c, d, distanceThreshold = 0) {
         let t = 0;
         let p = [0, 0];
 
@@ -295,16 +301,16 @@ define(function (require) {
             }
         }
 
-        if (exports.pointDistanceToSegment(a, b, c) === 0)
+        if (exports.pointDistanceToSegment(a, b, c) <= distanceThreshold)
             return c;
 
-        if (exports.pointDistanceToSegment(a, b, d) === 0)
+        if (exports.pointDistanceToSegment(a, b, d) <= distanceThreshold)
             return d;
 
-        if (exports.pointDistanceToSegment(c, d, a) === 0)
+        if (exports.pointDistanceToSegment(c, d, a) <= distanceThreshold)
             return a;
 
-        if (exports.pointDistanceToSegment(c, d, b) === 0)
+        if (exports.pointDistanceToSegment(c, d, b) <= distanceThreshold)
             return b;
 
         // Segments not intersecting
@@ -334,7 +340,7 @@ define(function (require) {
             }
 
             // Check if the segment intersect and it is an implicit segment
-            let intersect = exports.test2DSegmentSegment(a, b, c1, c2);
+            let intersect = exports.test2DSegmentSegment(a, b, c1, c2, distanceThreshold);
             if (intersect && s.implicit) {
                 if (splitImplicit) {
                     if (_.isNaN(intersect[0]) || _.isNaN(intersect[1]))
