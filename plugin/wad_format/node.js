@@ -6,7 +6,7 @@ define(function (require) {
     const utils = require('wad-importer/utils');
     const LumpEntry = require('wad-importer/wad_format/lump-entry');
 
-    const DISTANCE_THRESHOLD = 3;
+    const DISTANCE_THRESHOLD = 5;
     const RIGHT_SIDE_SIGN = 1;
     const LEFT_SIDE_SIGN = -1;
 
