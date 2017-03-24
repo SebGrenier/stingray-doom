@@ -19,10 +19,13 @@ define(function (require) {
     document.title = "Wad Viewer";
 
     // Initialize the application
-    function intOptionModel (value) {
+    function intOptionModel (value, onChangeCb) {
         return function (newValue) {
             if (arguments.length > 0) {
                 value = parseInt(newValue, 10);
+                if (onChangeCb) {
+                    onChangeCb(newValue);
+                }
             }
             return value;
         };
@@ -53,7 +56,8 @@ define(function (require) {
         constructor(opts) {
             this.wadFilePath = opts.wadFilePath;
             this.wadData = opts.wadData;
-            this.mapModelIndex = intOptionModel(0);
+            this.mapModelIndex = intOptionModel(0, this.buildMapInfo.bind(this));
+            this.buildMapInfo(0);
             this.mapOptions = {};
             for (let mapIndex = 0; mapIndex < this.wadData.maps.length; ++mapIndex) {
                 let map = this.wadData.maps[mapIndex];
@@ -68,6 +72,11 @@ define(function (require) {
             this.drawBoundingBoxModel = m.prop(true);
 
             this.wadCanvasConfig = this.wadCanvasConfig.bind(this);
+        }
+
+        buildMapInfo (mapIndex) {
+            let map = this.wadData.maps[mapIndex];
+            map.buildMissingInfo();
         }
 
         view () {
@@ -367,7 +376,7 @@ define(function (require) {
 
     projectService.relativePathToAbsolute(initialWad).then(wadFilePath => {
         console.time('load wad');
-        wadActions.loadWad(wadFilePath).then(wadData => {
+        wadActions.loadWad(wadFilePath, false).then(wadData => {
             console.timeEnd('load wad');
             console.log('wad', wadData);
             m.mount($('#mithril-root')[0], m.component({

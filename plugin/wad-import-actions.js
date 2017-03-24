@@ -22,9 +22,9 @@ define(function (require) {
         });
     }
 
-    function loadWad(filePath) {
+    function loadWad(filePath, loadMissingInfo = true) {
         return fetchBinaryData(filePath).then((binaryData) => {
-            return WAD.fromBinary(binaryData);
+            return WAD.fromBinary(binaryData, loadMissingInfo);
         });
     }
 

@@ -88,7 +88,7 @@ define(function (require) {
             }
         }
 
-        static fromBinary (binaryData) {
+        static fromBinary (binaryData, buildMissingInfo = true) {
             let WADData = new WAD();
             let uint8View = new Uint8Array(binaryData);
             WADData.header = getWADHeader(uint8View);
@@ -103,8 +103,10 @@ define(function (require) {
                 }
             }
 
-            WADData.buildCrossReferences();
-            WADData.buildMissingImplicitSegments();
+            if (buildMissingInfo) {
+                WADData.buildCrossReferences();
+                WADData.buildMissingImplicitSegments();
+            }
 
             return WADData;
         }

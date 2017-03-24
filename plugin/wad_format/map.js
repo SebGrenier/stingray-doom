@@ -45,6 +45,11 @@ define(function (require) {
             this.partitionLines = [];
         }
 
+        buildMissingInfo () {
+            this.buildCrossReferences();
+            this.buildMissingImplicitSegments();
+        }
+
         buildCrossReferences () {
             function buildReferencesFor (lumps, map) {
                 for (let lump of lumps) {
