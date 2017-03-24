@@ -146,7 +146,7 @@ define(function (require) {
             }
         }
 
-        addMissingImplicitSegments (map) {
+        computeCompletePartitionLine (map) {
             let bb = {
                 top: 0,
                 bottom: 0,
@@ -237,7 +237,7 @@ define(function (require) {
                     let [sortedProjected, sortedVertices] = _.unzip(_.sortBy(_.zip(projectedVertices, vertices), [pv => pv[0].x]));
 
                     // Get the greatest negative number
-                    let negativesVertices = _.filter(sortedProjected, pv => pv.x < (0 + DISTANCE_THRESHOLD));
+                    let negativesVertices = _.filter(sortedProjected, pv => pv.x < DISTANCE_THRESHOLD);
                     if (negativesVertices.length > 0) {
                         let projectedVertexBefore = _.last(negativesVertices);
                         let index = _.indexOf(sortedProjected, projectedVertexBefore);
@@ -250,7 +250,7 @@ define(function (require) {
                     }
 
                     // Get the smallest positive number
-                    let positiveVertices = _.filter(sortedProjected, pv => pv.x >= (length - DISTANCE_THRESHOLD));
+                    let positiveVertices = _.filter(sortedProjected, pv => pv.x >= DISTANCE_THRESHOLD);
                     if (positiveVertices.length > 0) {
                         let projectedVertexAfter = _.first(positiveVertices);
                         let index = _.indexOf(sortedProjected, projectedVertexAfter);
@@ -265,9 +265,15 @@ define(function (require) {
             }
 
             this.completePartitionLine = {start, end};
+        }
+
+        addMissingImplicitSegments (map) {
+            this.computeCompletePartitionLine(map);
+            let start = this.completePartitionLine.start;
+            let end = this.completePartitionLine.end;
             map.partitionLines.push(this.completePartitionLine);
 
-            aabb = utils.convertNodeBBToAABB(utils.getNodeBB([start, end]));
+            let aabb = utils.convertNodeBBToAABB(utils.getNodeBB([start, end]));
 
             // Get the segments that are connected to this partition line
             let segsInBB = utils.getSegmentInsideAABB(map, map.segs.concat(map.implicitSegs), aabb);
