@@ -378,4 +378,51 @@ describe('WAD Importer: Utils', [
             expect(utils.pointDistanceToSegment(a, b, c3)).toEqual(1);
         });
     });
+
+    describe('getVerticesCloseToSegment', function () {
+        it('works correctly', function () {
+            let v1 = {x: -1, y: 2};
+            let v2 = {x: 1, y: 1};
+            let threshold = 1;
+
+            let vertices = utils.getVerticesCloseToSegment(map.vertexes, v1, v2, threshold);
+
+            expect(vertices).toBeDefined();
+            expect(vertices.length).toEqual(2);
+        });
+    });
+
+    describe('signed2DTriArea', function () {
+        it('works correctly', function () {
+            let a = [0, 0];
+            let b = [2, 2];
+            let c1 = [0, 2];
+            let c2 = [2, 0];
+            let c3 = [1, 1];
+            let c4 = [3, 3];
+
+            expect(utils.signed2DTriArea(a, b, c1)).toBeGreaterThan(0);
+            expect(utils.signed2DTriArea(a, b, c2)).toBeLessThan(0);
+            expect(utils.signed2DTriArea(a, b, c3)).toEqual(0);
+            expect(utils.signed2DTriArea(a, b, c4)).toEqual(0);
+        });
+    });
+
+    describe('test2DSegmentSegment', function () {
+        it('works correctly', function () {
+            let threshold = 1;
+            let a = [0, 0];
+            let b = [2, 2];
+            let c1 = [0, 2];
+            let d1 = [2, 0];
+            let d2 = [1, 1];
+            let d3 = [0.5, 1.5];
+            let d4 = [-1, 2];
+
+            expect(utils.test2DSegmentSegment(a, b, c1, d1, threshold)).toEqual([1, 1]);
+            expect(utils.test2DSegmentSegment(a, b, c1, d2, threshold)).toEqual(d2);
+            expect(utils.test2DSegmentSegment(a, b, c1, d3, threshold)).toEqual(d3);
+            expect(utils.test2DSegmentSegment(a, b, c1, d4, threshold)).toBeNull();
+        });
+    });
 });
