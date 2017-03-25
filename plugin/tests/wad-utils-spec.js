@@ -12,11 +12,10 @@ describe('WAD Importer: Utils', [
     let map = new Map();
 
     function initData () {
-        for (let y = 1; y >= -1; y -= 2) {
-            for (let x = -1; x <= 1; x += 2) {
-                map.addVertex(x, y);
-            }
-        }
+        map.addVertex(-1, 1);
+        map.addVertex(1, 1);
+        map.addVertex(1, -1);
+        map.addVertex(-1, -1);
 
         for (let i = 0; i < 4; ++i) {
             let s = new Segment();
@@ -24,6 +23,8 @@ describe('WAD Importer: Utils', [
             s.endVertex = (i + 1) % 4;
             map.segs.push(s);
         }
+
+        map.addImplicitSegment(1, 3);
     }
     initData();
 
@@ -423,6 +424,23 @@ describe('WAD Importer: Utils', [
             expect(utils.test2DSegmentSegment(a, b, c1, d2, threshold)).toEqual(d2);
             expect(utils.test2DSegmentSegment(a, b, c1, d3, threshold)).toEqual(d3);
             expect(utils.test2DSegmentSegment(a, b, c1, d4, threshold)).toBeNull();
+        });
+    });
+
+    describe('getSegmentsCloseToSegment', function () {
+        it('works correctly', function () {
+            let threshold = 1;
+            let start = {x: -2, y: 2};
+            let end = {x: -0.5, y: 0.5};
+
+            let segs = utils.getSegmentsCloseToSegment(map, map.segs.concat(map.implicitSegs), start, end, threshold, true);
+
+            expect(segs).toBeDefined();
+            expect(segs.length).toEqual(4);
+            expect(segs[0]).toEqual(map.segs[0]);
+            expect(segs[1]).toEqual(map.segs[3]);
+            expect(segs[2]).toEqual(map.implicitSegs[0]);
+            expect(segs[3]).toEqual(map.implicitSegs[1]);
         });
     });
 });
