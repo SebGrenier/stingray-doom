@@ -73,7 +73,7 @@ define(function (require) {
                 this.mapOptions[map.name] = mapIndex;
             }
             this.getMapOptions = () => this.mapOptions;
-            this.numSeg = -1;
+            this.subSectorId = -1;
             this.nodeId = 0;
 
             this.drawModeModelIndex = intOptionModel(DrawMode.Lines);
@@ -136,11 +136,12 @@ define(function (require) {
 
                 window.addEventListener('keydown', e => {
                     if (e.keyCode === keyCodes.KEYCODE_PAGEUP)
-                        ++this.numSeg;
+                        ++this.subSectorId;
                     if (e.keyCode === keyCodes.KEYCODE_PAGEDOWN)
-                        --this.numSeg;
-                    if (this.numSeg < -1)
-                        this.numSeg = -1;
+                        --this.subSectorId;
+
+                    let map = this.wadData.maps[this.mapModelIndex()];
+                    this.subSectorId = Math.max(-1, Math.min(this.subSectorId, map.ssectors.length - 1));
 
                     m.redraw(true);
                 });
@@ -249,8 +250,8 @@ define(function (require) {
             let bb = wadAssets.getMapBB(map);
 
             let i = 0;
-            for (let subSector of map.ssectors) {
-                if (this.numSeg === -1 || subSector.numSegs === this.numSeg) {
+            if (this.subSectorId === -1) {
+                for (let subSector of map.ssectors) {
                     this.ctx.strokeStyle = getRandomColor();
                     for (let segOffset = 0; segOffset < subSector.numSegs; ++segOffset) {
                         let seg = map.segs[subSector.firstSeg + segOffset];
@@ -277,8 +278,61 @@ define(function (require) {
                             this.drawBoundingBox(nodeRef.leftBB, bb);
                         }
                     }
+                    ++i;
                 }
-                ++i;
+            } else {
+                let subSector = map.ssectors[this.subSectorId];
+                this.ctx.strokeStyle = getRandomColor();
+
+                // let partitionLines = [];
+                // subSector.getAncestorsPartitionLines(partitionLines);
+                // for (let pLine of partitionLines) {
+                //     let startVertex = {
+                //         x: pLine.start.x,
+                //         y: pLine.start.y
+                //     };
+                //
+                //     let endVertex = {
+                //         x: pLine.end.x,
+                //         y: pLine.end.y
+                //     };
+                //
+                //     let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
+                //
+                //     this.ctx.strokeStyle = 'blue';
+                //     this.ctx.beginPath();
+                //     this.ctx.moveTo(startVertexMod.x, startVertexMod.y);
+                //     this.ctx.lineTo(endVertexMod.x, endVertexMod.y);
+                //     this.ctx.stroke();
+                // }
+
+                for (let segOffset = 0; segOffset < subSector.numSegs; ++segOffset) {
+                    let seg = map.segs[subSector.firstSeg + segOffset];
+
+                    let startVertex = map.vertexes[seg.startVertex];
+                    let endVertex = map.vertexes[seg.endVertex];
+
+                    let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
+
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(startVertexMod.x, startVertexMod.y);
+                    this.ctx.lineTo(endVertexMod.x, endVertexMod.y);
+                    this.ctx.stroke();
+                }
+
+                //subSector.addMissingImplicitSegments(map);
+
+                if (this.drawBoundingBoxModel()) {
+                    let nodeRef = subSector.nodeRef;
+                    if (Node.isChildSubSector(nodeRef.rightChild) &&
+                        Node.childToIndex(nodeRef.rightChild) === this.subSectorId) {
+                        this.drawBoundingBox(nodeRef.rightBB, bb);
+                    }
+                    if (Node.isChildSubSector(nodeRef.leftChild) &&
+                        Node.childToIndex(nodeRef.leftChild) === this.subSectorId) {
+                        this.drawBoundingBox(nodeRef.leftBB, bb);
+                    }
+                }
             }
         }
 

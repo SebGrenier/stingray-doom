@@ -428,6 +428,15 @@ describe('WAD Importer: Utils', [
             expect(utils.test2DSegmentSegment(a, b, c1, d3, threshold)).toEqual(d3);
             expect(utils.test2DSegmentSegment(a, b, c1, d4, threshold)).toBeNull();
         });
+        it('works on special cases', function () {
+            let threshold = 1;
+            let a = [0, 0];
+            let b = [10, 0];
+            let c = [2, 0];
+            let d = [7, 0];
+
+            expect(utils.test2DSegmentSegment(a, b, c, d, threshold)).toEqual([2, 0]);
+        });
     });
 
     describe('getSegmentsCloseToSegment', function () {

@@ -77,13 +77,18 @@ define(function (require) {
                 let nodesToAdd = [];
                 let nodesToRemove = [];
                 for (let node of nodesToVisit) {
+                    //node.computeCompletePartitionLine(this);
                     node.addMissingImplicitSegments(this);
 
                     if (!Node.isChildSubSector(node.rightChild)) {
                         nodesToAdd.push(node.rightChildRef);
+                    } else {
+                        //node.rightChildRef.addMissingImplicitSegments(this);
                     }
                     if (!Node.isChildSubSector(node.leftChild)) {
                         nodesToAdd.push(node.leftChildRef);
+                    } else {
+                        //node.leftChildRef.addMissingImplicitSegments(this);
                     }
                     nodesToRemove.push(node);
                 }
