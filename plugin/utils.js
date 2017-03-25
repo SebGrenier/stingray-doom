@@ -58,6 +58,15 @@ define(function (require) {
         return [b, a];
     };
 
+    /**
+     * Transforms a vertex {x, y} into a point [x, y].
+     * @param [Vertex] v
+     * @returns {[Number, Number]}
+     */
+    exports.vertexToPoint = function (v) {
+        return [v.x, v.y];
+    };
+
     exports.add = function (a, b) {
         let c = new Array(a.length);
         for (let i = 0; i < a.length; ++i) {
@@ -85,6 +94,15 @@ define(function (require) {
         return c;
     };
 
+    exports.div = function (v, s) {
+        let c = new Array(v.length);
+        for (let i = 0; i < v.length; ++i) {
+            c[i] = v[i] / s;
+        }
+
+        return c;
+    };
+
     exports.dot = function (a, b) {
         let c = 0;
         for (let i = 0; i < a.length; ++i) {
@@ -96,6 +114,11 @@ define(function (require) {
 
     exports.length = function (v) {
         return Math.sqrt(exports.dot(v, v));
+    };
+
+    exports.normalize = function (v) {
+        let length = exports.length(v);
+        return exports.div(v, length);
     };
 
     exports.distanceBetweenVertex = function (v1, v2) {
@@ -224,7 +247,10 @@ define(function (require) {
         return subSet;
     };
 
-    // Square root distance between point c and segment ab
+    /**
+     * Squared distance between point c and segment ab
+     * @deprecated Too much unstable
+     */
     exports.squaredDistancePointToSegment = function (a, b, c) {
         let ab = exports.sub(b, a);
         let ac = exports.sub(c, a);
@@ -242,8 +268,33 @@ define(function (require) {
         return exports.dot(ac, ac) - (e * e) / f;
     };
 
+    /**
+     * @deprecated Too much unstable
+     * @param a
+     * @param b
+     * @param c
+     * @returns {number}
+     */
     exports.pointDistanceToSegment = function (a, b, c) {
         return Math.sqrt(exports.squaredDistancePointToSegment(a, b, c));
+    };
+
+    exports.pointDistanceToSegmentStable = function (a, b, c) {
+        let ab = exports.sub(b, a);
+        let ac = exports.sub(c, a);
+        let bc = exports.sub(c, b);
+        let e = exports.dot(ac, ab);
+
+        // c projects outside ab
+        if (e <= 0)
+            return exports.length(ac);
+        let f = exports.dot(ab, ab);
+        if (e >= f)
+            return exports.length(bc);
+
+        let num = Math.abs((b[0] - a[0])*(a[1] - c[1]) - (a[0] - c[0])*(b[1] - a[1]));
+        let denum = exports.length(exports.sub(b, a));
+        return num / denum;
     };
 
     exports.getVerticesCloseToSegment = function (vertices, startV, endV, distanceThreshold) {
@@ -254,7 +305,7 @@ define(function (require) {
 
         for (let v of vertices) {
             let c = [v.x, v.y];
-            let distance = exports.pointDistanceToSegment(a, b, c);
+            let distance = exports.pointDistanceToSegmentStable(a, b, c);
             if (distance <= distanceThreshold)
                 subSet.push(v);
         }
@@ -301,16 +352,16 @@ define(function (require) {
             }
         }
 
-        if (exports.pointDistanceToSegment(a, b, c) <= distanceThreshold)
+        if (exports.pointDistanceToSegmentStable(a, b, c) <= distanceThreshold)
             return c;
 
-        if (exports.pointDistanceToSegment(a, b, d) <= distanceThreshold)
+        if (exports.pointDistanceToSegmentStable(a, b, d) <= distanceThreshold)
             return d;
 
-        if (exports.pointDistanceToSegment(c, d, a) <= distanceThreshold)
+        if (exports.pointDistanceToSegmentStable(c, d, a) <= distanceThreshold)
             return a;
 
-        if (exports.pointDistanceToSegment(c, d, b) <= distanceThreshold)
+        if (exports.pointDistanceToSegmentStable(c, d, b) <= distanceThreshold)
             return b;
 
         // Segments not intersecting
@@ -326,14 +377,14 @@ define(function (require) {
         for (let s of segs) {
             let v1 = map.vertexes[s.startVertex];
             let c1 = [v1.x, v1.y];
-            let distance = exports.pointDistanceToSegment(a, b, c1);
+            let distance = exports.pointDistanceToSegmentStable(a, b, c1);
             if (distance <= distanceThreshold) {
                 subSet.push(s);
                 continue;
             }
             let v2 = map.vertexes[s.endVertex];
             let c2 = [v2.x, v2.y];
-            distance = exports.pointDistanceToSegment(a, b, c2);
+            distance = exports.pointDistanceToSegmentStable(a, b, c2);
             if (distance <= distanceThreshold) {
                 subSet.push(s);
                 continue;
@@ -367,14 +418,14 @@ define(function (require) {
         for (let line of pLines) {
             let v1 = line.start;
             let c1 = [v1.x, v1.y];
-            let distance = exports.pointDistanceToSegment(a, b, c1);
+            let distance = exports.pointDistanceToSegmentStable(a, b, c1);
             if (distance <= distanceThreshold) {
                 subSet.push(line);
                 continue;
             }
             let v2 = line.end;
             let c2 = [v2.x, v2.y];
-            distance = exports.pointDistanceToSegment(a, b, c2);
+            distance = exports.pointDistanceToSegmentStable(a, b, c2);
             if (distance <= distanceThreshold) {
                 subSet.push(line);
                 continue;
@@ -390,6 +441,25 @@ define(function (require) {
         return subSet;
     };
 
+    exports.getPartitionLinesCloseToPoint = function (map, pLines, v, distanceThreshold) {
+        let subSet = [];
+        let a = [v.x, v.y];
+
+
+        for (let line of pLines) {
+            let v1 = line.start;
+            let c1 = [v1.x, v1.y];
+            let v2 = line.end;
+            let c2 = [v2.x, v2.y];
+            let distance = exports.pointDistanceToSegmentStable(c1, c2, a);
+            if (distance <= distanceThreshold) {
+                subSet.push(line);
+            }
+        }
+
+        return subSet;
+    };
+
     exports.getVertexFromSegmentsCloseToSegment = function (map, segs, startV, endV, distanceThreshold) {
         let vertices = [];
         let a = [startV.x, startV.y];
@@ -398,13 +468,13 @@ define(function (require) {
         for (let s of segs) {
             let v1 = map.vertexes[s.startVertex];
             let c1 = [v1.x, v1.y];
-            let distance = exports.pointDistanceToSegment(a, b, c1);
+            let distance = exports.pointDistanceToSegmentStable(a, b, c1);
             if (distance <= distanceThreshold) {
                 vertices.push(v1);
             }
             let v2 = map.vertexes[s.endVertex];
             let c2 = [v2.x, v2.y];
-            distance = exports.pointDistanceToSegment(a, b, c2);
+            distance = exports.pointDistanceToSegmentStable(a, b, c2);
             if (distance <= distanceThreshold) {
                 vertices.push(v2);
             }
@@ -475,6 +545,23 @@ define(function (require) {
         }
 
         return bb;
+    };
+
+    /**
+     * Return the angle between the vertex v1v2 and v1v3
+     * @param [Vertex] v1
+     * @param [Vertex] v2
+     * @param [Vertex] v3
+     * @returns {number} Angle between 0 and pi
+     */
+    exports.angleBetweenSegments = function (v1, v2, v3) {
+        let p1 = exports.vertexToPoint(v1);
+        let p2 = exports.vertexToPoint(v2);
+        let p3 = exports.vertexToPoint(v3);
+
+        let p1p2 = exports.normalize(exports.sub(p2, p1));
+        let p1p3 = exports.normalize(exports.sub(p3, p1));
+        return Math.acos(exports.dot(p1p2, p1p3));
     };
 
     return exports;

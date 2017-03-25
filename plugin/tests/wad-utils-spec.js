@@ -366,7 +366,7 @@ describe('WAD Importer: Utils', [
         });
     });
 
-    describe('pointDistanceToSegment', function () {
+    describe('pointDistanceToSegmentStable', function () {
         it('works correctly', function () {
             let a = [0, 0];
             let b = [2, 2];
@@ -374,9 +374,12 @@ describe('WAD Importer: Utils', [
             let c2 = [2, 2];
             let c3 = [2, 3];
 
-            expect(utils.pointDistanceToSegment(a, b, c1)).toEqual(0);
-            expect(utils.pointDistanceToSegment(a, b, c2)).toEqual(0);
-            expect(utils.pointDistanceToSegment(a, b, c3)).toEqual(1);
+            expect(utils.pointDistanceToSegmentStable(a, b, c1)).toEqual(0);
+            expect(utils.pointDistanceToSegmentStable(a, b, c2)).toEqual(0);
+            expect(utils.pointDistanceToSegmentStable(a, b, c3)).toEqual(1);
+
+            // Some custom cases
+            expect(utils.pointDistanceToSegmentStable([2064, -3408], [1554.7500000000005, -3480.75], [1784, -3448])).not.toBeNaN();
         });
     });
 
