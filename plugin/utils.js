@@ -409,6 +409,25 @@ define(function (require) {
         return subSet;
     };
 
+    exports.getSegmentsCloseToPoint = function (map, segs, v, distanceThreshold) {
+        let subSet = [];
+        let a = [v.x, v.y];
+
+
+        for (let s of segs) {
+            let v1 = map.vertexes[s.startVertex];
+            let c1 = [v1.x, v1.y];
+            let v2 = map.vertexes[s.endVertex];
+            let c2 = [v2.x, v2.y];
+            let distance = exports.pointDistanceToSegmentStable(c1, c2, a);
+            if (distance <= distanceThreshold) {
+                subSet.push(s);
+            }
+        }
+
+        return subSet;
+    };
+
     exports.getPartitionLinesCloseToSegment = function (map, pLines, startV, endV, distanceThreshold) {
         let subSet = [];
         let a = [startV.x, startV.y];
@@ -562,6 +581,13 @@ define(function (require) {
         let p1p2 = exports.normalize(exports.sub(p2, p1));
         let p1p3 = exports.normalize(exports.sub(p3, p1));
         return Math.acos(exports.dot(p1p2, p1p3));
+    };
+
+    exports.segmentIsSegment = function (map, segment, startV, endV, threshold) {
+        let sStart = map.vertexes[segment.startVertex];
+        let sEnd = map.vertexes[segment.endVertex];
+        return (exports.distanceBetweenVertex(startV, sStart) <= threshold && exports.distanceBetweenVertex(endV, sEnd) <= threshold) ||
+            (exports.distanceBetweenVertex(startV, sEnd) <= threshold && exports.distanceBetweenVertex(endV, sStart) <= threshold);
     };
 
     exports.partitionLineIsSegment = function (pLine, startV, endV, threshold) {

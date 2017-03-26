@@ -320,7 +320,7 @@ define(function (require) {
                     this.ctx.stroke();
                 }
 
-                subSector.addMissingImplicitSegments(map);
+                subSector.addMissingImplicitSegments2(map);
                 for (let seg of subSector.completeSegments) {
                     if (!seg.implicit)
                         continue;

@@ -38,6 +38,7 @@ define(function (require) {
 
             this.completePartitionLine = null;
             this.id = stingray.guid();
+            this.implicitSegments = [];
         }
 
         buildCrossReferences (map) {
@@ -143,6 +144,14 @@ define(function (require) {
             if (this.parent) {
                 this.parent.getAncestorsPartitionLines(partitionLines);
                 partitionLines.push(this.parent.completePartitionLine);
+            }
+        }
+
+        getAncestorsImplicitSegments (implicitSegments) {
+            if (this.parent) {
+                this.parent.getAncestorsImplicitSegments(implicitSegments);
+                for (let seg of this.implicitSegments)
+                    implicitSegments.push(seg);
             }
         }
 
@@ -305,7 +314,8 @@ define(function (require) {
                 if (map.segmentExists(startIndex, endIndex))
                     continue;
 
-                map.addImplicitSegment(startIndex, endIndex);
+                let implicitSeg = map.addImplicitSegment(startIndex, endIndex);
+                this.implicitSegments.push(implicitSeg);
             }
         }
 

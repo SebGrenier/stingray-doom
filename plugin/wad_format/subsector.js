@@ -188,6 +188,14 @@ define(function (require) {
             partitionLines.push(this.nodeRef.completePartitionLine);
         }
 
+        getAncestorsImplicitSegments (implicitSegments) {
+            if (!this.nodeRef)
+                return;
+            this.nodeRef.getAncestorsImplicitSegments(implicitSegments);
+            for (let seg of this.nodeRef.implicitSegments)
+                implicitSegments.push(seg);
+        }
+
         addMissingImplicitSegments (map) {
             if (!this.nodeRef)
                 return;
@@ -268,6 +276,81 @@ define(function (require) {
                         newSegment.direction = seg.direction;
 
                         this.completeSegments.splice(index + 1, 0, newSegment);
+
+                        break;
+                    }
+                    hasHole = false;
+                }
+                ++testCounter;
+                if (testCounter > 100)
+                    throw new Error('Probable infinite loop :(');
+            }
+        }
+
+        addMissingImplicitSegments2 (map) {
+            if (!this.nodeRef)
+                return;
+
+            let implicitSegments = [];
+            this.getAncestorsImplicitSegments(implicitSegments);
+
+            this.completeSegments = this.reorderSegments2(this.getOriginalSegments(map));
+
+            let hasHole = true;
+            let testCounter = 0;
+            while (hasHole) {
+                for (let i = 0; i < this.completeSegments.length; ++i) {
+                    let index = i;
+                    let nextIndex = (i + 1) % this.completeSegments.length;
+
+                    let seg = this.completeSegments[index];
+                    let nextSeg = this.completeSegments[nextIndex];
+
+                    // Check if the two segments are not joined together
+                    if (seg.endVertex !== nextSeg.startVertex) {
+                        hasHole = true;
+
+                        let startV = map.vertexes[seg.startVertex];
+                        let endV = map.vertexes[seg.endVertex];
+                        let a = [startV.x, startV.y];
+                        let b = [endV.x, endV.y];
+                        let length = utils.distanceBetweenVertex(endV, startV);
+
+                        // Get implicit segments that start on endVertex
+                        let implicitSegsOnEnd = _.filter(map.implicitSegs, s => {
+                            return s.startVertex === seg.endVertex;
+                        });
+                        let implicitSegsToRemove = _.clone(implicitSegsOnEnd);
+
+                        // Remove partitions that don't split the segment in the same direction as the segment
+                        let sign = -1;//seg.direction === 0 ? -1 : 1;
+                        implicitSegsOnEnd = _.filter(implicitSegsOnEnd, s => {
+                            let sStart = map.vertexes[s.startVertex];
+                            let sEnd = map.vertexes[s.endVertex];
+                            return sign * utils.signed2DTriArea(a, b, [sStart.x, sStart.y]) >= 0 ||
+                                sign * utils.signed2DTriArea(a, b, [sEnd.x, sEnd.y]) >= 0;
+                        });
+
+                        if (implicitSegsOnEnd.length === 0) {
+                            throw new Error('No implicit segment connected found');
+                        }
+
+                        // Get the point that forms the smallest angle
+                        let validPoints = _.map(implicitSegsOnEnd, s => {
+                            let sStart = map.vertexes[s.startVertex];
+                            let sEnd = map.vertexes[s.endVertex];
+                            if (sign * utils.signed2DTriArea(a, b, [sStart.x, sStart.y]) > EPSILON)
+                                return sStart;
+                            return sEnd;
+                        });
+                        let angles = _.map(validPoints, v => {
+                            return utils.angleBetweenSegments(endV, v, startV);
+                        });
+                        let [sortedAngles, sortedSegs] = _.unzip(_.sortBy(_.zip(angles, implicitSegsOnEnd), av => av[0]));
+                        let bestSeg = _.first(sortedSegs);
+
+                        // Generate a new segment
+                        this.completeSegments.splice(index + 1, 0, bestSeg);
 
                         break;
                     }
