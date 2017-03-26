@@ -2,6 +2,7 @@ define(function (require) {
     "use strict";
 
     const _ = require('lodash');
+    const mathUtils = require('common/math-utils');
     const LumpEntry = require('wad-importer/wad_format/lump-entry');
     const Segment = require('wad-importer/wad_format/segment');
     const utils = require('wad-importer/utils');
@@ -214,20 +215,33 @@ define(function (require) {
                         let endV = map.vertexes[seg.endVertex];
                         let a = [startV.x, startV.y];
                         let b = [endV.x, endV.y];
+                        let length = utils.distanceBetweenVertex(endV, startV);
                         let partitionLinesOnEnd = utils.getPartitionLinesCloseToPoint(map, partitionLines, endV, DISTANCE_THRESHOLD);
                         let partitionLinesToRemove = _.clone(partitionLinesOnEnd);
 
                         // Remove partitions on current segment
+                        // partitionLinesOnEnd = _.filter(partitionLinesOnEnd, p => {
+                        //     return Math.abs(utils.signed2DTriArea([p.start.x, p.start.y], [p.end.x, p.end.y], a)) >= EPSILON ||
+                        //         Math.abs(utils.signed2DTriArea([p.start.x, p.start.y], [p.end.x, p.end.y], b)) >= EPSILON;
+                        // });
+
+                        // Remove partitions that are the current segment
+                        partitionLinesOnEnd = _.filter(partitionLinesOnEnd, p => !utils.partitionLineIsSegment(p, startV, endV, EPSILON));
+
+                        // Remove partition lines that do not continue ahead of segment
                         partitionLinesOnEnd = _.filter(partitionLinesOnEnd, p => {
-                            return Math.abs(utils.signed2DTriArea([p.start.x, p.start.y], [p.end.x, p.end.y], a)) >= EPSILON ||
-                                Math.abs(utils.signed2DTriArea([p.start.x, p.start.y], [p.end.x, p.end.y], b)) > EPSILON;
+                            if (Math.abs(utils.signed2DTriArea([p.start.x, p.start.y], [p.end.x, p.end.y], a)) >= EPSILON ||
+                                Math.abs(utils.signed2DTriArea([p.start.x, p.start.y], [p.end.x, p.end.y], b)) >= EPSILON)
+                                return true;
+                            return utils.projectVertexOnSegment(startV, endV, p.start, true).x > length ||
+                                utils.projectVertexOnSegment(startV, endV, p.end, true).x > length;
                         });
 
                         // Remove partitions that don't split the segment in the same direction as the segment
-                        let sign = seg.direction === 0 ? -1 : 1;
+                        let sign = -1;//seg.direction === 0 ? -1 : 1;
                         partitionLinesOnEnd = _.filter(partitionLinesOnEnd, p => {
-                            return sign * utils.signed2DTriArea(a, b, [p.start.x, p.start.y]) > EPSILON ||
-                                sign * utils.signed2DTriArea(a, b, [p.end.x, p.end.y]) > EPSILON;
+                            return sign * utils.signed2DTriArea(a, b, [p.start.x, p.start.y]) >= 0 ||
+                                sign * utils.signed2DTriArea(a, b, [p.end.x, p.end.y]) >= 0;
                         });
 
                         if (partitionLinesOnEnd.length === 0) {
@@ -276,14 +290,14 @@ define(function (require) {
                 let d = [v2.x, v2.y];
                 let intersection = utils.test2DSegmentSegment(a, b, c, d, DISTANCE_THRESHOLD);
                 if (intersection) {
-                    if (intersection === c) {
+                    if (utils.distanceBetweenVertex({x: intersection[0], y: intersection[1]}, v1) <= EPSILON) {
                         let newSeg = new Segment();
                         newSeg.implicit = true;
                         newSeg.startVertex = startVertexIndex;
                         newSeg.endVertex = seg.startVertex;
                         return newSeg;
                     }
-                    if (intersection === d) {
+                    if (utils.distanceBetweenVertex({x: intersection[0], y: intersection[1]}, v2) <= EPSILON) {
                         let newSeg = new Segment();
                         newSeg.implicit = true;
                         newSeg.startVertex = startVertexIndex;

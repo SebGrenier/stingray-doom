@@ -564,5 +564,10 @@ define(function (require) {
         return Math.acos(exports.dot(p1p2, p1p3));
     };
 
+    exports.partitionLineIsSegment = function (pLine, startV, endV, threshold) {
+        return (exports.distanceBetweenVertex(startV, pLine.start) <= threshold && exports.distanceBetweenVertex(endV, pLine.end) <= threshold) ||
+            (exports.distanceBetweenVertex(startV, pLine.end) <= threshold && exports.distanceBetweenVertex(endV, pLine.start) <= threshold);
+    };
+
     return exports;
 });
