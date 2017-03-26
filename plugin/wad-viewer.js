@@ -320,7 +320,20 @@ define(function (require) {
                     this.ctx.stroke();
                 }
 
-                //subSector.addMissingImplicitSegments(map);
+                subSector.addMissingImplicitSegments(map);
+                for (let seg of subSector.completeSegments) {
+                    if (!seg.implicit)
+                        continue;
+                    let startVertex = map.vertexes[seg.startVertex];
+                    let endVertex = map.vertexes[seg.endVertex];
+
+                    let [startVertexMod, endVertexMod] = this.getScaledVertices(startVertex, endVertex, bb);
+                    this.ctx.strokeStyle = 'yellow';
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(startVertexMod.x, startVertexMod.y);
+                    this.ctx.lineTo(endVertexMod.x, endVertexMod.y);
+                    this.ctx.stroke();
+                }
 
                 if (this.drawBoundingBoxModel()) {
                     let nodeRef = subSector.nodeRef;

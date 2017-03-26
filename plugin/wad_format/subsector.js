@@ -9,6 +9,97 @@ define(function (require) {
     const DISTANCE_THRESHOLD = 5;
     const EPSILON = 0.0000001;
 
+    class Node {
+        constructor (seg) {
+            this.seg = seg;
+            this.previous = null;
+            this.next = null;
+        }
+    }
+
+    class Graph {
+        constructor () {
+            this.nodes = [];
+        }
+
+        addNode (node) {
+            this.nodes.push(node);
+        }
+
+        canJoinGraph (graph) {
+            let withoutNext = _.filter(this.nodes, n => !n.next);
+            let withoutPrevious = _.filter(this.nodes, n => !n.previous);
+
+            let otherWithoutNext = _.filter(graph.nodes, n => !n.next);
+            let otherWithoutPrevious = _.filter(graph.nodes, n => !n.previous);
+
+            let canConnectNext = _.some(withoutNext, node => {
+                return !!_.find(otherWithoutPrevious, otherNode => node.seg.endVertex === otherNode.seg.startVertex);
+            });
+            if (canConnectNext)
+                return true;
+
+            let canConnectPrevious = _.some(withoutPrevious, node => {
+                return !!_.find(otherWithoutNext, otherNode => node.seg.startVertex === otherNode.seg.endVertex);
+            });
+            if (canConnectPrevious)
+                return true;
+
+            return false;
+        }
+
+        joinGraph (graph) {
+            let withoutNext = _.filter(this.nodes, n => !n.next);
+            let withoutPrevious = _.filter(this.nodes, n => !n.previous);
+
+            let otherWithoutNext = _.filter(graph.nodes, n => !n.next);
+            let otherWithoutPrevious = _.filter(graph.nodes, n => !n.previous);
+
+            for (let node of withoutNext) {
+                let otherNode = _.find(otherWithoutPrevious, n => node.seg.endVertex === n.seg.startVertex);
+                if (!otherNode)
+                    continue;
+                node.next = otherNode;
+                otherNode.previous = node;
+                _.pull(otherWithoutPrevious, otherNode);
+            }
+
+            for (let node of withoutPrevious) {
+                let otherNode = _.find(otherWithoutNext, n => node.seg.startVertex === n.seg.endVertex);
+                if (!otherNode)
+                    continue;
+                node.previous = otherNode;
+                otherNode.next = node;
+                _.pull(otherWithoutNext, otherNode);
+            }
+
+            this.nodes = this.nodes.concat(graph.nodes);
+        }
+
+        first () {
+            let first = _.first(this.nodes);
+            for (let node of this.nodes) {
+                if (!node.previous)
+                    first = node;
+            }
+
+            return first;
+        }
+
+        toSegList () {
+            let first = this.first();
+            let node = first;
+            let segs = [first.seg];
+
+            while (node.next && node.next !== first) {
+                node = node.next;
+                segs.push(node.seg);
+            }
+
+            return segs;
+        }
+    }
+
     class SubSector extends LumpEntry {
         constructor () {
             super();
@@ -32,13 +123,61 @@ define(function (require) {
         }
 
         reorderSegments (segs) {
-            let toProcess = _.clone(segs);
+            let toOrder = _.clone(segs);
+            for (let i = 0; i < toOrder.length; ++i) {
+                let index = i;
+                for (let j = i + 1; j < toOrder.length; ++j) {
+                    if (toOrder[j].endVertex === toOrder[i].startVertex) {
+                        index = j + 1;
+                        break;
+                    } else if (toOrder[j].startVertex === toOrder[i].endVertex) {
+                        index = j;
+                        break;
+                    }
+                }
+                if (index !== i && index !== i + 1) {
+                    toOrder.splice(index, 0, toOrder[i]);
+                    toOrder.splice(i, 1);
+                    --i;
+                }
+            }
+
+            return toOrder;
+        }
+
+        reorderSegments2 (segs) {
+            let nodes = _.map(segs, s => new Node(s));
+            let graphs = _.map(nodes, n => {
+                let g = new Graph();
+                g.addNode(n);
+                return g;
+            });
             let ordered = [];
 
+            let changes = true;
+            while (graphs.length > 1 && changes) {
+                changes = false;
+                let toRemove = [];
+                for (let i = 0; i < graphs.length - 1; ++i) {
+                    let g = graphs[i];
+                    for (let j = i + 1; j < graphs.length; ++j) {
+                        let otherG = graphs[j];
+                        if (otherG.canJoinGraph(g)) {
+                            otherG.joinGraph(g);
+                            toRemove.push(g);
+                            changes = true;
+                            break;
+                        }
+                    }
+                }
 
-            while (toProcess.length > 0) {
-
+                _.pullAll(graphs, toRemove);
             }
+
+            for (let g of graphs) {
+                ordered = ordered.concat(g.toSegList());
+            }
+            return ordered;
         }
 
         getAncestorsPartitionLines (partitionLines) {
@@ -55,7 +194,7 @@ define(function (require) {
             let partitionLines = [];
             this.getAncestorsPartitionLines(partitionLines);
 
-            this.completeSegments = this.getOriginalSegments(map);
+            this.completeSegments = this.reorderSegments2(this.getOriginalSegments(map));
 
             let hasHole = true;
             let testCounter = 0;
