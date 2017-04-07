@@ -150,9 +150,9 @@ define(function (require) {
         getAncestorsImplicitSegments (implicitSegments) {
             if (this.parent) {
                 this.parent.getAncestorsImplicitSegments(implicitSegments);
-                for (let seg of this.implicitSegments)
-                    implicitSegments.push(seg);
             }
+            for (let seg of this.implicitSegments)
+                implicitSegments.push(seg);
         }
 
         computeCompletePartitionLine (map) {

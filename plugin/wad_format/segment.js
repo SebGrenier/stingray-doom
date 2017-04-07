@@ -18,6 +18,13 @@ define(function (require) {
             this.implicit = false;
         }
 
+        invertDirection () {
+            let temp = this.endVertex;
+            this.endVertex = this.startVertex;
+            this.startVertex = temp;
+            this.direction = (this.direction + 1) % 2;
+        }
+
         static fromBinary (binaryData) {
             let seg = new Segment();
             seg.startVertex = _.toInt16(binaryData[0], binaryData[1]);
