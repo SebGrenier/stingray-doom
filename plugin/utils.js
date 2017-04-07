@@ -67,6 +67,10 @@ define(function (require) {
         return [v.x, v.y];
     };
 
+    exports.pointToVertex = function (p) {
+        return {x: p[0], y: p[1]};
+    };
+
     exports.add = function (a, b) {
         let c = new Array(a.length);
         for (let i = 0; i < a.length; ++i) {
@@ -119,6 +123,10 @@ define(function (require) {
     exports.normalize = function (v) {
         let length = exports.length(v);
         return exports.div(v, length);
+    };
+
+    exports.perpVector = function (v) {
+        return [-v[1], v[0]];
     };
 
     exports.distanceBetweenVertex = function (v1, v2) {

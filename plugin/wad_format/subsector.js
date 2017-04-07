@@ -218,6 +218,26 @@ define(function (require) {
             if (!this.nodeRef)
                 return;
 
+            let originalSegments = this.getOriginalSegments(map);
+            let centerPoint = [0, 0];
+            let nbPoint = 0;
+            for (let seg of originalSegments) {
+                let lineDef = map.linedefs[seg.linedefRef];
+                let a = utils.vertexToPoint(map.vertexes[lineDef.startVertex]);
+                let b = utils.vertexToPoint(map.vertexes[lineDef.endVertex]);
+                let ab = utils.sub(b, a);
+                let perp = utils.perpVector(ab);
+                if (seg.direction === 0)
+                    perp = utils.mult(perp, -1);
+                perp = utils.normalize(perp);
+                let halfPoint = utils.add(a, utils.div(ab, 2));
+                let halfPointOffseted = utils.add(halfPoint, perp);
+                centerPoint = utils.add(centerPoint, halfPointOffseted);
+                nbPoint++;
+            }
+            centerPoint = utils.div(centerPoint, nbPoint);
+            let centerVertex = utils.pointToVertex(centerPoint);
+
             let graphs = this.getOrderedGraphs(this.getOriginalSegments(map));
 
             let testCounter = 0;
@@ -249,8 +269,12 @@ define(function (require) {
                         if (implicitSegsOnEnd.length === 0)
                             continue;
 
-                        // Remove partitions that don't split the segment in the same direction as the segment
-                        let sign = -1;//seg.direction === 0 ? -1 : 1;
+                        // Remove current implicit segment if applicable
+                        if (seg.implicit) {
+                            implicitSegsOnEnd = _.filter(implicitSegsOnEnd, s => s !== seg);
+                        }
+
+                        // Remove partitions that don't have direct line of site with center point
                         implicitSegsOnEnd = _.filter(implicitSegsOnEnd, s => {
                             let sStart = map.vertexes[s.startVertex];
                             let sEnd = map.vertexes[s.endVertex];
