@@ -327,9 +327,7 @@ define(function (require) {
         return (a[0] - c[0]) * (b[1] - c[1]) - (a[1] - c[1]) * (b[0] - c[0]);
     };
 
-    // Test if segments ab and cd overlap. If they do, compute and return
-    // intersection position p
-    exports.test2DSegmentSegment = function (a, b, c, d, distanceThreshold = 0) {
+    exports.test2DSegmentSegmentIntersect = function (a, b, c, d) {
         let t = 0;
         let p = [0, 0];
 
@@ -359,6 +357,15 @@ define(function (require) {
                 return p;
             }
         }
+        return null;
+    };
+
+    // Test if segments ab and cd overlap. If they do, compute and return
+    // intersection position p
+    exports.test2DSegmentSegment = function (a, b, c, d, distanceThreshold = 0) {
+        let intersection = exports.test2DSegmentSegmentIntersect(a, b, c, d);
+        if (intersection)
+            return intersection;
 
         if (exports.pointDistanceToSegmentStable(a, b, c) <= distanceThreshold)
             return c;

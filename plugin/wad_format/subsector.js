@@ -222,14 +222,10 @@ define(function (require) {
             let centerPoint = [0, 0];
             let nbPoint = 0;
             for (let seg of originalSegments) {
-                let lineDef = map.linedefs[seg.linedefRef];
-                let a = utils.vertexToPoint(map.vertexes[lineDef.startVertex]);
-                let b = utils.vertexToPoint(map.vertexes[lineDef.endVertex]);
+                let perp = seg.getPerpendicular(map);
+                let a = utils.vertexToPoint(map.vertexes[seg.startVertex]);
+                let b = utils.vertexToPoint(map.vertexes[seg.endVertex]);
                 let ab = utils.sub(b, a);
-                let perp = utils.perpVector(ab);
-                if (seg.direction === 0)
-                    perp = utils.mult(perp, -1);
-                perp = utils.normalize(perp);
                 let halfPoint = utils.add(a, utils.div(ab, 2));
                 let halfPointOffseted = utils.add(halfPoint, perp);
                 centerPoint = utils.add(centerPoint, halfPointOffseted);
@@ -269,17 +265,20 @@ define(function (require) {
                         if (implicitSegsOnEnd.length === 0)
                             continue;
 
-                        // Remove current implicit segment if applicable
-                        if (seg.implicit) {
-                            implicitSegsOnEnd = _.filter(implicitSegsOnEnd, s => s !== seg);
-                        }
+                        // Remove current segment
+                        implicitSegsOnEnd = _.filter(implicitSegsOnEnd, s => s !== seg);
 
                         // Remove partitions that don't have direct line of site with center point
                         implicitSegsOnEnd = _.filter(implicitSegsOnEnd, s => {
-                            let sStart = map.vertexes[s.startVertex];
-                            let sEnd = map.vertexes[s.endVertex];
-                            return sign * utils.signed2DTriArea(a, b, [sStart.x, sStart.y]) >= 0 ||
-                                sign * utils.signed2DTriArea(a, b, [sEnd.x, sEnd.y]) >= 0;
+                            let sStart = s.startVertex === unconnectedVertex ? map.vertexes[s.endVertex] : map.vertexes[s.startVertex];
+                            let a = utils.vertexToPoint(sStart);
+                            return !_.some(map.segs.concat(map.implicitSegs), os => {
+                                let c = utils.vertexToPoint(map.vertexes[os.startVertex]);
+                                let d = utils.vertexToPoint(map.vertexes[os.endVertex]);
+                                let intersection = utils.test2DSegmentSegmentIntersect(a, centerPoint, c, d);
+                                return intersection !== null;
+                            });
+
                         });
 
                         if (implicitSegsOnEnd.length === 0) {
@@ -288,11 +287,7 @@ define(function (require) {
 
                         // Get the point that forms the smallest angle
                         let validPoints = _.map(implicitSegsOnEnd, s => {
-                            let sStart = map.vertexes[s.startVertex];
-                            let sEnd = map.vertexes[s.endVertex];
-                            if (sign * utils.signed2DTriArea(a, b, [sStart.x, sStart.y]) > EPSILON)
-                                return sStart;
-                            return sEnd;
+                            return s.startVertex === unconnectedVertex ? map.vertexes[s.endVertex] : map.vertexes[s.startVertex];
                         });
                         let angles = _.map(validPoints, v => {
                             return utils.angleBetweenSegments(endV, v, startV);

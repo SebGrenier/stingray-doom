@@ -3,6 +3,7 @@ define(function (require) {
 
     const _ = require('lodash');
     const LumpEntry = require('wad-importer/wad_format/lump-entry');
+    const utils = require('wad-importer/utils');
 
     class Segment extends LumpEntry{
         constructor () {
@@ -23,6 +24,18 @@ define(function (require) {
             this.endVertex = this.startVertex;
             this.startVertex = temp;
             this.direction = (this.direction + 1) % 2;
+        }
+
+        getPerpendicular (map) {
+            let lineDef = map.linedefs[this.linedefRef];
+            let a = utils.vertexToPoint(map.vertexes[lineDef.startVertex]);
+            let b = utils.vertexToPoint(map.vertexes[lineDef.endVertex]);
+            let ab = utils.sub(b, a);
+            let perp = utils.perpVector(ab);
+            if (this.direction === 0)
+                perp = utils.mult(perp, -1);
+            perp = utils.normalize(perp);
+            return perp;
         }
 
         static fromBinary (binaryData) {
