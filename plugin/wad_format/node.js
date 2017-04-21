@@ -314,6 +314,10 @@ define(function (require) {
                 if (map.segmentExists(startIndex, endIndex))
                     continue;
 
+                // Don't add an implicit segment if the two vertices lie on the same linedef
+                if (map.isOnSameLineDef(startIndex, endIndex))
+                    continue;
+
                 let implicitSeg = map.addImplicitSegment(startIndex, endIndex);
                 this.implicitSegments.push(implicitSeg);
             }

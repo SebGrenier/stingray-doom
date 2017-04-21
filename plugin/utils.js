@@ -60,7 +60,7 @@ define(function (require) {
 
     /**
      * Transforms a vertex {x, y} into a point [x, y].
-     * @param [Vertex] v
+     * @param {Vertex} v
      * @returns {[Number, Number]}
      */
     exports.vertexToPoint = function (v) {
@@ -129,10 +129,14 @@ define(function (require) {
         return [-v[1], v[0]];
     };
 
+    exports.distanceBetweenPoints = function (p1, p2) {
+        return exports.length(exports.sub(p2, p1));
+    };
+
     exports.distanceBetweenVertex = function (v1, v2) {
-        let c1 = [v1.x, v1.y];
-        let c2 = [v2.x, v2.y];
-        return exports.length(exports.sub(c2, c1));
+        let p1 = [v1.x, v1.y];
+        let p2 = [v2.x, v2.y];
+        return exports.distanceBetweenPoints(p1, p2);
     };
 
     exports.convertNodeBBToAABB = function (bb) {
@@ -556,7 +560,7 @@ define(function (require) {
     };
 
     /**
-     * The a Node::boundingBox englobing the vertices.
+     * The Node::boundingBox englobing the vertices.
      * @param vertices
      */
     exports.getNodeBB = function (vertices) {
@@ -583,9 +587,9 @@ define(function (require) {
 
     /**
      * Return the angle between the vertex v1v2 and v1v3
-     * @param [Vertex] v1
-     * @param [Vertex] v2
-     * @param [Vertex] v3
+     * @param {Vertex} v1
+     * @param {Vertex} v2
+     * @param {Vertex} v3
      * @returns {number} Angle between 0 and pi
      */
     exports.angleBetweenSegments = function (v1, v2, v3) {

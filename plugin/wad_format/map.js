@@ -156,6 +156,19 @@ define(function (require) {
             });
         }
 
+        isOnSameLineDef (startVertexIndex, endVertexIndex) {
+            let allSegForStartVertex = _.filter(this.segs, s => {
+                return s.startVertex === startVertexIndex || s.endVertex === startVertexIndex;
+            });
+            let allSegForEndVertex = _.filter(this.segs, s => {
+                return s.startVertex === endVertexIndex || s.endVertex === endVertexIndex;
+            });
+            let lineDefsForStartVertex = _.map(allSegForStartVertex, s => s.linedefRef);
+            let lineDefsForEndVertex = _.map(allSegForEndVertex, s => s.linedefRef);
+            let sameLinedefs = _.intersection(lineDefsForStartVertex, lineDefsForEndVertex);
+            return sameLinedefs.length > 0;
+        }
+
         static fromBinary(binaryData, directoryEntry, directory) {
             function checkAndParse (binaryData, directory, mapEntry) {
                 if (mapEntry.index >= directory.length)

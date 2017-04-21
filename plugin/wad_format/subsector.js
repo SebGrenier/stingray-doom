@@ -232,7 +232,6 @@ define(function (require) {
                 nbPoint++;
             }
             centerPoint = utils.div(centerPoint, nbPoint);
-            let centerVertex = utils.pointToVertex(centerPoint);
 
             let graphs = this.getOrderedGraphs(this.getOriginalSegments(map));
 
@@ -254,9 +253,6 @@ define(function (require) {
                             endV = temp;
                         }
 
-                        let a = [startV.x, startV.y];
-                        let b = [endV.x, endV.y];
-
                         // Get implicit segments that start or end on vertex
                         let implicitSegsOnEnd = _.filter(map.implicitSegs, s => {
                             return s.startVertex === unconnectedVertex || s.endVertex === unconnectedVertex;
@@ -276,7 +272,11 @@ define(function (require) {
                                 let c = utils.vertexToPoint(map.vertexes[os.startVertex]);
                                 let d = utils.vertexToPoint(map.vertexes[os.endVertex]);
                                 let intersection = utils.test2DSegmentSegmentIntersect(a, centerPoint, c, d);
-                                return intersection !== null;
+
+                                if (intersection)
+                                    return utils.distanceBetweenPoints(a, intersection) > DISTANCE_THRESHOLD;
+
+                                return false;
                             });
 
                         });
