@@ -32,12 +32,57 @@ define(function (require) {
     }
 
     const DrawMode = {
-        'Lines': 0,
-        'SubSectors' :1,
-        'Partitions': 2,
-        'Segments': 3,
-        'Divisions': 4,
-        'Regions': 5
+        'Lines':
+            {
+                index:0,
+                onKeyDown: function () {}
+            },
+        'SubSectors':
+            {
+                index:1,
+                subSectorId: -1,
+                onKeyDown: function (e, ctrl) {
+                    if (e.keyCode === keyCodes.KEYCODE_PAGEUP)
+                        ++this.subSectorId;
+                    if (e.keyCode === keyCodes.KEYCODE_PAGEDOWN)
+                        --this.subSectorId;
+
+                    let map = ctrl.wadData.maps[ctrl.mapModelIndex()];
+                    this.subSectorId = Math.max(-1, Math.min(this.subSectorId, map.ssectors.length - 1));
+
+                    m.redraw(true);
+                }
+            },
+        'Partitions':
+            {
+                index:2,
+                onKeyDown: function () {}
+            },
+        'Segments':
+            {
+                index:3,
+                onKeyDown: function () {}
+            },
+        'Divisions':
+            {
+                index:4,
+                nodeId: 0,
+                onKeyDown: function (e, ctrl) {
+                    if (e.keyCode === keyCodes.KEYCODE_PAGEUP)
+                        ++this.nodeId;
+                    if (e.keyCode === keyCodes.KEYCODE_PAGEDOWN)
+                        --this.nodeId;
+
+                    let map = ctrl.wadData.maps[ctrl.mapModelIndex()];
+                    this.nodeId = Math.max(0, Math.min(this.nodeId, map.nodes.length - 1));
+                    m.redraw(true);
+                }
+            },
+        'Regions':
+            {
+                index:5,
+                onKeyDown: function () {}
+            }
     };
 
     function getRandomColor() {
@@ -73,11 +118,9 @@ define(function (require) {
                 this.mapOptions[map.name] = mapIndex;
             }
             this.getMapOptions = () => this.mapOptions;
-            this.subSectorId = -1;
-            this.nodeId = 0;
 
-            this.drawModeModelIndex = intOptionModel(DrawMode.Lines);
-            this.getDrawModeOptions = () => DrawMode;
+            this.drawModeModelIndex = intOptionModel(DrawMode.Lines.index);
+            this.getDrawModeOptions = () => _.mapValues(DrawMode, 'index');
             this.drawBoundingBoxModel = m.prop(true);
 
             this.drawAncestorsModel = m.prop(false);
@@ -88,6 +131,11 @@ define(function (require) {
         buildMapInfo (mapIndex) {
             let map = this.wadData.maps[mapIndex];
             map.buildMissingInfo();
+        }
+
+        getCurrentDrawMode () {
+            let index = this.drawModeModelIndex();
+            return _.find(DrawMode, dm => dm.index === index);
         }
 
         view () {
@@ -107,7 +155,7 @@ define(function (require) {
                     Checkbox.component({
                         model: this.drawBoundingBoxModel
                     }),
-                    m.utils.if(this.drawModeModelIndex() === DrawMode.Divisions, () => {
+                    m.utils.if(this.drawModeModelIndex() === DrawMode.Divisions.index, () => {
                         return [
                             'Ancestors',
                             Checkbox.component({
@@ -135,46 +183,28 @@ define(function (require) {
                 this.ctx.fillStyle = 'black';
 
                 window.addEventListener('keydown', e => {
-                    if (e.keyCode === keyCodes.KEYCODE_PAGEUP)
-                        ++this.subSectorId;
-                    if (e.keyCode === keyCodes.KEYCODE_PAGEDOWN)
-                        --this.subSectorId;
-
-                    let map = this.wadData.maps[this.mapModelIndex()];
-                    this.subSectorId = Math.max(-1, Math.min(this.subSectorId, map.ssectors.length - 1));
-
-                    m.redraw(true);
-                });
-                window.addEventListener('mousewheel', e => {
-                    let delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
-                    if (delta > 0)
-                        ++this.nodeId;
-                    else if (delta < 0)
-                        --this.nodeId;
-
-                    let map = this.wadData.maps[this.mapModelIndex()];
-                    this.nodeId = Math.max(0, Math.min(this.nodeId, map.nodes.length - 1));
-                    m.redraw(true);
+                    let drawMode = this.getCurrentDrawMode();
+                    drawMode.onKeyDown(e, this);
                 });
             }
 
             switch (this.drawModeModelIndex()) {
-                case DrawMode.Lines:
+                case DrawMode.Lines.index:
                     this.drawMapLines();
                     break;
-                case DrawMode.SubSectors:
+                case DrawMode.SubSectors.index:
                     this.drawMapSubSectors();
                     break;
-                case DrawMode.Partitions:
+                case DrawMode.Partitions.index:
                     this.drawMapPartitionLines();
                     break;
-                case DrawMode.Segments:
+                case DrawMode.Segments.index:
                     this.drawMapSegments();
                     break;
-                case DrawMode.Divisions:
+                case DrawMode.Divisions.index:
                     this.drawDivisions();
                     break;
-                case DrawMode.Regions:
+                case DrawMode.Regions.index:
                     this.drawSubSectorRegion();
                     break;
             }
@@ -250,7 +280,8 @@ define(function (require) {
             let bb = wadAssets.getMapBB(map);
 
             let i = 0;
-            if (this.subSectorId === -1) {
+            let drawMode = DrawMode.SubSectors;
+            if (drawMode.subSectorId === -1) {
                 for (let subSector of map.ssectors) {
                     this.ctx.strokeStyle = getRandomColor();
                     for (let segOffset = 0; segOffset < subSector.numSegs; ++segOffset) {
@@ -281,7 +312,7 @@ define(function (require) {
                     ++i;
                 }
             } else {
-                let subSector = map.ssectors[this.subSectorId];
+                let subSector = map.ssectors[drawMode.subSectorId];
                 this.ctx.strokeStyle = getRandomColor();
 
                 // let partitionLines = [];
@@ -430,7 +461,8 @@ define(function (require) {
             }
 
             // Draw a division (they are ordered bottom to top, so root is last)
-            let node = map.nodes[map.nodes.length - 1 - this.nodeId];
+            let drawMode = DrawMode.Divisions;
+            let node = map.nodes[map.nodes.length - 1 - drawMode.nodeId];
             let startVertex = {
                 x: node.completePartitionLine.start.x,
                 y: node.completePartitionLine.start.y
