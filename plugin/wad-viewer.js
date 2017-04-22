@@ -92,11 +92,11 @@ define(function (require) {
                     m.redraw(true);
                 }
             },
-        // 'Regions':
-        //     {
-        //         index:5,
-        //         onKeyDown: function () {}
-        //     }
+        'Regions':
+            {
+                index:5,
+                onKeyDown: function () {}
+            }
     };
 
     function getRandomColor() {
@@ -129,8 +129,12 @@ define(function (require) {
     }
 
     class Buffer {
-        constructor (gl) {
+        constructor (gl, shader) {
+            if (!gl || !shader)
+                throw new Error('Invalid arguments passed to constructor');
+
             this.gl = gl;
+            this.shader = shader;
             this.vertices = [];
             this.colors = [];
             this.indices = [];
@@ -163,18 +167,26 @@ define(function (require) {
             this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), this.gl.STATIC_DRAW);
         }
 
-        draw (shader) {
+        draw (pMatrix, mvMatrix) {
+            this.gl.useProgram(this.shader.shaderProgram);
+
+            let pUniform = this.gl.getUniformLocation(this.shader.shaderProgram, "uPMatrix");
+            this.gl.uniformMatrix4fv(pUniform, false, new Float32Array(pMatrix.flatten()));
+
+            let mvUniform = this.gl.getUniformLocation(this.shader.shaderProgram, "uMVMatrix");
+            this.gl.uniformMatrix4fv(mvUniform, false, new Float32Array(mvMatrix.flatten()));
+
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-            this.gl.vertexAttribPointer(shader.attributeLocations['aVertexPosition'], 3, this.gl.FLOAT, false, 0, 0);
+            this.gl.vertexAttribPointer(this.shader.attributeLocations['aVertexPosition'], 3, this.gl.FLOAT, false, 0, 0);
 
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
-            this.gl.vertexAttribPointer(shader.attributeLocations['aVertexColor'], 3, this.gl.FLOAT, false, 0, 0);
+            this.gl.vertexAttribPointer(this.shader.attributeLocations['aVertexColor'], 3, this.gl.FLOAT, false, 0, 0);
         }
     }
 
     class LineBuffer extends Buffer {
-        constructor (gl) {
-            super(gl);
+        constructor (gl, shader) {
+            super(gl, shader);
         }
 
         endShape () {
@@ -182,8 +194,8 @@ define(function (require) {
             super.endShape();
         }
 
-        draw (shader) {
-            super.draw(shader);
+        draw (pMatrix, mvMatrix) {
+            super.draw(pMatrix, mvMatrix);
 
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
             this.gl.drawElements(this.gl.LINES, this.indices.length, this.gl.UNSIGNED_SHORT, 0);
@@ -191,8 +203,8 @@ define(function (require) {
     }
 
     class QuadBuffer extends Buffer {
-        constructor (gl) {
-            super(gl);
+        constructor (gl, shader) {
+            super(gl, shader);
         }
 
         endShape () {
@@ -200,11 +212,91 @@ define(function (require) {
             super.endShape();
         }
 
-        draw (shader) {
-            super.draw(shader);
+        draw (pMatrix, mvMatrix) {
+            super.draw(pMatrix, mvMatrix);
 
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
             this.gl.drawElements(this.gl.LINE_LOOP, this.indices.length, this.gl.UNSIGNED_SHORT, 0);
+        }
+    }
+
+    class TexQuadBuffer extends Buffer {
+        constructor (gl, shader, width, height) {
+            super(gl, shader);
+
+            this.texCoords = [];
+            this.texCoordsBuffer = null;
+
+            this.width = width;
+            this.height = height;
+            this.stride = 4; // RGBA
+            let size = width * height * this.stride;
+            this.pixels = new ArrayBuffer(size);
+            this.pixelBufferView = new Uint8Array(this.pixels);
+            this.texture = null;
+        }
+
+        pushVertex (position, texCoords) {
+            this.vertices.push(position.x);
+            this.vertices.push(position.y);
+            this.vertices.push(0);
+            this.texCoords.push(texCoords[0]);
+            this.texCoords.push(texCoords[1]);
+        }
+
+        pushPixel (x, y, color) {
+            let index = ((y * this.width) + x) * this.stride;
+            for (let i = 0; i < this.stride; ++i) {
+                this.pixelBufferView[index + i] = color[i];
+            }
+        }
+
+        endShape () {
+            this.indices = [0, 2, 1, 1, 2, 3];
+
+            this.vertexBuffer = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.vertices), this.gl.DYNAMIC_DRAW);
+
+            this.texCoordsBuffer = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.texCoordsBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.texCoords), this.gl.STATIC_DRAW);
+
+            this.indexBuffer = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+            this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), this.gl.STATIC_DRAW);
+
+            this.texture = this.gl.createTexture();
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.width, this.height, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.pixelBufferView);
+            // make sure we can render it even if it's not a power of 2
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        }
+
+        draw (pMatrix, mvMatrix) {
+            this.gl.useProgram(this.shader.shaderProgram);
+
+            let pUniform = this.gl.getUniformLocation(this.shader.shaderProgram, "uPMatrix");
+            this.gl.uniformMatrix4fv(pUniform, false, new Float32Array(pMatrix.flatten()));
+
+            let mvUniform = this.gl.getUniformLocation(this.shader.shaderProgram, "uMVMatrix");
+            this.gl.uniformMatrix4fv(mvUniform, false, new Float32Array(mvMatrix.flatten()));
+
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.uniform1i(this.gl.getUniformLocation(this.shader.shaderProgram, "texture"), 0);
+
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+            this.gl.vertexAttribPointer(this.shader.attributeLocations['aVertexPosition'], 3, this.gl.FLOAT, false, 0, 0);
+
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.texCoordsBuffer);
+            this.gl.vertexAttribPointer(this.shader.attributeLocations['aVertexTexCoord'], 2, this.gl.FLOAT, false, 0, 0);
+
+            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
         }
     }
 
@@ -349,6 +441,7 @@ define(function (require) {
 
         initShaders () {
             this.shader = glUtils.initShader(this.gl, "shader-vs", "shader-fs", null, ['aVertexPosition', 'aVertexColor']);
+            this.textureShader = glUtils.initShader(this.gl, "shader-text-vs", "shader-text-fs", null, ['aVertexPosition', 'aVertexTexCoord']);
         }
 
         initMouseHandlers (domElement) {
@@ -434,16 +527,8 @@ define(function (require) {
             let mvMatrix = glUtils.loadIdentity();
             mvMatrix = glUtils.mvTranslate(mvMatrix, this.cameraOptions.translateMatrix);
 
-            this.gl.useProgram(this.shader.shaderProgram);
-
-            let pUniform = this.gl.getUniformLocation(this.shader.shaderProgram, "uPMatrix");
-            this.gl.uniformMatrix4fv(pUniform, false, new Float32Array(perspectiveMatrix.flatten()));
-
-            let mvUniform = this.gl.getUniformLocation(this.shader.shaderProgram, "uMVMatrix");
-            this.gl.uniformMatrix4fv(mvUniform, false, new Float32Array(mvMatrix.flatten()));
-
             for (let buffer of this.buffers) {
-                buffer.draw(this.shader);
+                buffer.draw(perspectiveMatrix, mvMatrix);
             }
 
             requestAnimationFrame(this.draw);
@@ -494,7 +579,7 @@ define(function (require) {
                 let startVertex = map.vertexes[lineDef.startVertex];
                 let endVertex = map.vertexes[lineDef.endVertex];
 
-                let lineBuffer = new LineBuffer(this.gl);
+                let lineBuffer = new LineBuffer(this.gl, this.shader);
                 let color = [];
                 if (lineDef.lineType > 0) {
                     color = COLORS.Special;
@@ -524,7 +609,7 @@ define(function (require) {
                         let startVertex = map.vertexes[seg.startVertex];
                         let endVertex = map.vertexes[seg.endVertex];
 
-                        let buffer = new LineBuffer(this.gl);
+                        let buffer = new LineBuffer(this.gl, this.shader);
                         buffer.pushVertex(startVertex, [color.r, color.g, color.b]);
                         buffer.pushVertex(endVertex, [color.r, color.g, color.b]);
                         buffer.endShape();
@@ -576,7 +661,7 @@ define(function (require) {
                     let startVertex = map.vertexes[seg.startVertex];
                     let endVertex = map.vertexes[seg.endVertex];
 
-                    let buffer = new LineBuffer(this.gl);
+                    let buffer = new LineBuffer(this.gl, this.shader);
                     buffer.pushVertex(startVertex, [color.r, color.g, color.b]);
                     buffer.pushVertex(endVertex, [color.r, color.g, color.b]);
                     buffer.endShape();
@@ -590,7 +675,7 @@ define(function (require) {
                     let startVertex = map.vertexes[seg.startVertex];
                     let endVertex = map.vertexes[seg.endVertex];
 
-                    let buffer = new LineBuffer(this.gl);
+                    let buffer = new LineBuffer(this.gl, this.shader);
                     buffer.pushVertex(startVertex, COLORS.Yellow);
                     buffer.pushVertex(endVertex, COLORS.Yellow);
                     buffer.endShape();
@@ -634,7 +719,7 @@ define(function (require) {
                     }
                 }
 
-                let buffer = new LineBuffer(this.gl);
+                let buffer = new LineBuffer(this.gl, this.shader);
                 buffer.pushVertex(startVertex, COLORS.White);
                 buffer.pushVertex(endVertex, COLORS.White);
                 buffer.endShape();
@@ -655,7 +740,7 @@ define(function (require) {
                 else
                     color = COLORS.Red;
 
-                let buffer = new LineBuffer(this.gl);
+                let buffer = new LineBuffer(this.gl, this.shader);
                 buffer.pushVertex(startVertex, color);
                 buffer.pushVertex(endVertex, color);
                 buffer.endShape();
@@ -665,14 +750,13 @@ define(function (require) {
 
         drawDivisions () {
             let map = this.wadData.maps[this.mapModelIndex()];
-            let bb = wadAssets.getMapBB(map);
 
             // Draw map lines
             for (let lineDef of map.linedefs) {
                 let startVertex = map.vertexes[lineDef.startVertex];
                 let endVertex = map.vertexes[lineDef.endVertex];
 
-                let buffer = new LineBuffer(this.gl);
+                let buffer = new LineBuffer(this.gl, this.shader);
                 buffer.pushVertex(startVertex, COLORS.White);
                 buffer.pushVertex(endVertex, COLORS.White);
                 buffer.endShape();
@@ -710,13 +794,13 @@ define(function (require) {
                 }
             }
 
-            let buffer = new LineBuffer(this.gl);
+            let buffer = new LineBuffer(this.gl, this.shader);
             buffer.pushVertex(startVertex, COLORS.Blue);
             buffer.pushVertex(endVertex, COLORS.Blue);
             buffer.endShape();
             this.buffers.push(buffer);
 
-            buffer = new LineBuffer(this.gl);
+            buffer = new LineBuffer(this.gl, this.shader);
             buffer.pushVertex(startPartition, COLORS.Yellow);
             buffer.pushVertex(endPartition, COLORS.Yellow);
             buffer.endShape();
@@ -737,7 +821,7 @@ define(function (require) {
                         y: partitionLine.end.y
                     };
 
-                    buffer = new LineBuffer(this.gl);
+                    buffer = new LineBuffer(this.gl, this.shader);
                     buffer.pushVertex(start, COLORS.Blue);
                     buffer.pushVertex(end, COLORS.Blue);
                     buffer.endShape();
@@ -747,40 +831,43 @@ define(function (require) {
         }
 
         drawSubSectorRegion () {
-            this.ctx.fillStyle = `rgba(0, 0, 0, 1)`;
-            this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
             let map = this.wadData.maps[this.mapModelIndex()];
             let bb = wadAssets.getMapBB(map);
 
             let subSectorColors = [];
             for (let i = 0; i < map.ssectors.length; ++i) {
-                subSectorColors.push(getRandomRGB());
+                let rgb = getRandomRGB();
+                subSectorColors.push([rgb.r, rgb.g, rgb.b, 255]);
             }
 
             let root = map.getRootNode();
 
-            for (let x = bb.minX; x <= bb.maxX; ++x) {
-                for (let y = bb.minY; y <= bb.maxY; ++y) {
+            let texQuadBuffer = new TexQuadBuffer(this.gl, this.textureShader, bb.maxX - bb.minX + 1, bb.maxY - bb.minY + 1);
+            texQuadBuffer.pushVertex({x: bb.minX, y: bb.maxY}, [0, 1]);
+            texQuadBuffer.pushVertex({x: bb.maxX, y: bb.maxY}, [1, 1]);
+            texQuadBuffer.pushVertex({x: bb.minX, y: bb.minY}, [0, 0]);
+            texQuadBuffer.pushVertex({x: bb.maxX, y: bb.minY}, [1, 0]);
+
+            for (let y = bb.minY; y <= bb.maxY; ++y) {
+                for (let x = bb.minX; x <= bb.maxX; ++x) {
                     let subSector = root.getSubSectorFromPoint(x, y);
                     if (subSector) {
                         let index = map.ssectors.indexOf(subSector);
                         if (index > -1) {
                             let color = subSectorColors[index];
-
-
-                            let scaledPos = this.getScaledVertex({x, y}, bb);
-                            this.ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
-                            this.ctx.fillRect(scaledPos.x, scaledPos.y, 1, 1);
+                            texQuadBuffer.pushPixel(x - bb.minX, y - bb.minY, color);
                         }
                     }
                 }
             }
 
+            texQuadBuffer.endShape();
+            this.buffers.push(texQuadBuffer);
         }
 
         drawBoundingBox (bb, color) {
             color = color || [0, 1, 0];
-            let buffer = new QuadBuffer(this.gl);
+            let buffer = new QuadBuffer(this.gl, this.shader);
             buffer.pushVertex({x: bb.left, y: bb.top}, color);
             buffer.pushVertex({x: bb.right, y: bb.top}, color);
             buffer.pushVertex({x: bb.right, y: bb.bottom}, color);

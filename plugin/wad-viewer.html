@@ -18,4 +18,28 @@
     gl_FragColor = vColor;
   }
 </script>
+<script id="shader-text-vs" type="x-shader/x-vertex">
+  attribute vec3 aVertexPosition;
+  attribute vec2 aVertexTexCoord;
+
+  uniform mat4 uMVMatrix;
+  uniform mat4 uPMatrix;
+
+  varying highp vec2 vTexCoord;
+
+  void main(void) {
+    vTexCoord = aVertexTexCoord;
+    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+  }
+</script>
+<script id="shader-text-fs" type="x-shader/x-fragment">
+  varying highp vec2 vTexCoord;
+
+  uniform sampler2D texture;
+
+  void main(void) {
+    gl_FragColor = texture2D(texture, vTexCoord, 0.0);
+    gl_FragColor.a = 1.0;
+  }
+</script>
 <div id="mithril-root" class="main-container fullscreen"></div>
