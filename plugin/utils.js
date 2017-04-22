@@ -409,6 +409,9 @@ define(function (require) {
                 continue;
             }
 
+            if (!s.implicit)
+                continue;
+
             // Check if the segment intersect and it is an implicit segment
             let intersect = exports.test2DSegmentSegment(a, b, c1, c2, distanceThreshold);
             if (intersect && s.implicit) {

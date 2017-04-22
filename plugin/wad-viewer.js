@@ -850,7 +850,7 @@ define(function (require) {
 
             for (let y = bb.minY; y <= bb.maxY; ++y) {
                 for (let x = bb.minX; x <= bb.maxX; ++x) {
-                    let subSector = root.getSubSectorFromPoint(x, y);
+                    let subSector = root.getSubSectorFromPoint(map, x, y);
                     if (subSector) {
                         let index = map.ssectors.indexOf(subSector);
                         if (index > -1) {

@@ -323,38 +323,36 @@ define(function (require) {
             }
         }
 
-        getSubSectorFromPoint (x, y) {
-            let leftAABB = utils.convertNodeBBToAABB(this.leftBB);
-            let rightAABB = utils.convertNodeBBToAABB(this.rightBB);
-            let p = [x, y];
+        getSubSectorFromPoint (map, x, y) {
 
-            let isInLeftBB = utils.pointIsInsideAABB(p, leftAABB);
-            let isInRightBB = utils.pointIsInsideAABB(p, rightAABB);
+            let isLeft = this.getVertexSideOfPartitionLine({x, y}, this.completePartitionLine) === LEFT_SIDE_SIGN;
+            let child = isLeft ? this.leftChild : this.rightChild;
+            let childRef = isLeft ? this.leftChildRef : this.rightChildRef;
 
-            if (isInLeftBB && isInRightBB) {
-                if (this.getVertexSideOfPartitionLine({x, y}, this.completePartitionLine) === LEFT_SIDE_SIGN)
-                    isInRightBB = false;
-                else
-                    isInLeftBB = false;
+            if (!Node.isChildSubSector(child))
+                return childRef.getSubSectorFromPoint(map, x, y);
+
+            let segs = childRef.getOriginalSegments(map);
+
+            let isOutside = false;
+            let c = utils.vertexToPoint({x, y});
+            for (let seg of segs) {
+                let lineDef = map.linedefs[seg.linedefRef];
+                if (lineDef.twoSided)
+                    continue;
+                let perp = seg.getPerpendicular(map);
+                let a = utils.vertexToPoint(map.vertexes[seg.startVertex]);
+                let b = utils.vertexToPoint(map.vertexes[seg.endVertex]);
+                let ab = utils.sub(b, a);
+                let halfPoint = utils.add(a, utils.div(ab, 2));
+                let d = utils.add(halfPoint, perp);
+                let sign = Math.sign(utils.signed2DTriArea(a, b, d));
+                if (Math.sign(utils.signed2DTriArea(a, b, c)) !== sign)
+                    isOutside = true;
             }
 
-            if (isInLeftBB) {
-                if (Node.isChildSubSector(this.leftChild)) {
-                    let subSector = this.leftChildRef;
-
-                    return subSector;
-                } else {
-                    return this.leftChildRef.getSubSectorFromPoint(x, y);
-                }
-            } else if (isInRightBB) {
-                if (Node.isChildSubSector(this.rightChild)) {
-                    let subSector = this.rightChildRef;
-
-                    return subSector;
-                } else {
-                    return this.rightChildRef.getSubSectorFromPoint(x, y);
-                }
-            }
+            if (!isOutside)
+                return childRef;
 
             return null;
         }
